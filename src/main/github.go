@@ -12,7 +12,6 @@ import (
     "strconv"
     "sync/atomic"
     "strings"
-    "time"   
     "flag"
     "encoding/json"
 )
@@ -26,16 +25,16 @@ var count int64 = 0
  */
 func cloner(id int, c chan *github.Repository, db *sql.DB) {
     dir := "/home/jd/tmp/" 
-    languages := make(map[string]int)
 
     for repo := range c { 
+        languages := make(map[string]int)
         tx, err := db.Begin()
         if err != nil {
             fmt.Println("could not create transaction", err)
             break
         }
         stmt_repo, err := tx.Prepare("INSERT INTO repos (id, name, owner, description, " + 
-            "language, createdat) VALUES ($1, $2, $3, $4, $5, $6)")
+            "language, forks) VALUES ($1, $2, $3, $4, $5, $6)")
         if err != nil {
             fmt.Println(err)
             break
@@ -90,12 +89,13 @@ func cloner(id int, c chan *github.Repository, db *sql.DB) {
             }
         }
         _, err = tx.Stmt(stmt_repo).Exec(*(repo.ID), *(repo.Name), *(repo.Owner.Login), 
-            description, maxLanguage, time.Now());
+            description, maxLanguage, *(repo.ForksCount));
         if err != nil {
             fmt.Println(err)
         }
         tx.Commit()
         os.RemoveAll(dir + *(repo.Name))
+        fmt.Fprintf(os.Stdout, "Processed repo: %s", *(repo.Name))
     }
     w.Done() 
 }
@@ -109,26 +109,45 @@ func get_repos(db *sql.DB, index int, c chan *github.Repository, apiToken string
     client := github.NewClient(t.Client())
     
     for {
-        users, _, err := client.Users.ListAll(&github.UserListOptions{ Since: index }) 
-        if err != nil { // deals with if the api limit is hit
-            fmt.Println(err)
-            time.Sleep(10 * time.Minute) 
-        } else {
-            for i := 0 ; i < len(users) ; i++ {
-                fmt.Fprintf(os.Stdout, "%d: %s\n", (index + i), *(users[i].Login))
-                repos, _, _ := client.Repositories.List(*(users[i].Login), nil)
+        users, _, _ := client.Users.ListAll(&github.UserListOptions{ Since: index }) 
+        for i := 0 ; i < len(users) ; i++ {
+            var userName string
+            db.QueryRow("select login from users where id = $1", *(users[i].ID)).Scan(&userName)
+            if len(userName) == 0 {
+                tx, _ := db.Begin()
+                stmt_user, err := tx.Prepare("INSERT INTO users (id, name, login, email, " + 
+                    "avatarUrl, followers, following, createdat) VALUES " + 
+                    "($1, $2, $3, $4, $5, $6, $7, $8)")
+                user, _, _ := client.Users.Get(*(users[i].Login))
+                name := ""
+                if user.Name != nil {
+                    name = *(user.Name)
+                }
+                email := ""
+                if user.Email != nil {
+                    email = *(user.Email)
+                }
+                _, err = tx.Stmt(stmt_user).Exec(*(user.ID), name, 
+                    *(user.Login), email, *(user.AvatarURL), 
+                    *(user.Followers), *(user.Following), *(user.CreatedAt))
+                if err != nil {
+                    fmt.Println(err)
+                }
+                tx.Commit()
+                fmt.Fprintf(os.Stdout, "--------%d: %s\n", (index + i), *(user.Login))
+                repos, _, _ := client.Repositories.List(*(user.Login), nil)
                 for j := 0 ; j < len(repos) ; j++ {
                     /* Makes sure that the repo has not already be processed */
-                    var name string
-                    db.QueryRow("SELECT name FROM repos WHERE owner = $1 and name = $2", 
-                        *(users[i].Login), *(repos[j].Name)).Scan(&name)
-                    if name == "" {
+                    var repoName string
+                    db.QueryRow("SELECT name FROM repos WHERE id = $1", 
+                        *(repos[j].ID)).Scan(&repoName)
+                    if repoName == "" {
                         c <- &(repos[j])    
                     }
                 }
             }
-            index += len(users)
         }
+        index += len(users)
     }
     close(c)
 }

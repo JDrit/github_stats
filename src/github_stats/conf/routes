@@ -7,7 +7,7 @@ module:testrunner
 GET     /                                       Languages.Index
 GET     /language/:language                     Languages.Show
 GET     /users                                  Users.Index
-GET     /user/:user                             Users.Show
+GET     /user/:login                             Users.Show
 GET     /repos                                  Repos.Index
 GET     /repo/:repoId                           Repos.Show
 

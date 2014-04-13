@@ -11,6 +11,8 @@ type Repo struct {
     Description   string
     Language      string
     CreatedAt     string
+    Stargazers    int
+    Forks         int
 }
 
 type File struct {
@@ -34,7 +36,14 @@ type RepoStat struct {
     Count         int
 }
 type User struct {
+    Id            int
     Name          string
+    AvatarUrl     string
+    Login         string
+    Email         string
+    Followers     string
+    Following     string
+    CreatedAt     string
     Count         int
 }
 

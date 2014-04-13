@@ -7,9 +7,10 @@
         <br>
         <br>
         <h1><a href="https://github.com/{{.repo.Owner}}/{{.repo.Name}}">{{.repo.Name}}</a></h1>
-        <h4><i>by {{.repo.Owner}}</i></h4>
+        <h4><i>by <a href="/user/{{.repo.Owner}}">{{.repo.Owner}}</a></i></h4>
         <br>
         <h4>{{.repo.Description}}</h4>
+        <h4>{{.repo.Forks}} forks</h4>
         <br />
     </div>
     <div class="col-xs-6">
@@ -35,56 +36,5 @@
     {{end}}
 </table>
 
-<script>
-    $(function () {
-        $("#donut-chart").highcharts({
-            chart: {
-                plotBackgroundColor: null,
-                plotBorderWidth: null,
-                plotShadow: false,
-                backgroundColor: null,
-                type: 'pie'
-            },
-            title: {
-                text: "Breakdown of languages"
-            },
-            tooltip: {
-                pointFormat: "<b>{point.y}</b> lines"
-            },
-            plotOptions: {
-                pie: {
-                    center: ['50%', '50%'],
-                    allowPointSelect: true,
-                    cursor: 'pointer',
-                    dataLabels: {
-                        enabled: true,
-                        color: '#000000',
-                        connectorColor: '#000000',
-                        format: '<b>{point.name}</b>: {point.percentage:.1f}%'
-                    }
-                }
-            },
-            series: [{
-                type: 'pie',
-                name: 'Language share',
-                point: {
-                    events: {
-                        click: function(e) {
-                            location.href = "/language/" + e.point.name;
-                            e.preventDefault();
-                        }
-                    }
-                },
-                data: [
-                    {{range .fileStats}}
-                        [{{.Language}}, {{.Lines}}],
-                    {{end}}
-                ],
-                innerSize: '50%'
-            }]
-        });
-    });
-</script>
-
-
+{{template "pie-chart.html" .}}
 {{template "footer.html" .}}

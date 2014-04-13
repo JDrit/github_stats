@@ -12,14 +12,12 @@
         <th>Name</th>
         <th>Owner</th>
         <th>Description</th>
-        <th>Created at</th>
     </tr>
     {{range .repos}} 
         <tr>
             <td><a href="/repo/{{.Id}}">{{.Name}}</a></td>
             <td><a href="/user/{{.Owner}}">{{.Owner}}</a></td>
             <td>{{.Description}}</td>
-            <td>{{.CreatedAt}}</td>
         </tr>
     {{end}}
 </table>

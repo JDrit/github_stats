@@ -1,0 +1,44 @@
+{{set . "title" "Github Stats"}}
+{{template "header.html" .}}
+
+<div class="row">
+    <div class="col-xs-6">
+        <br>
+        <br>
+        <br>
+        <div class="row">
+            <div class="col-xs-6">
+                <img width="200" height="200" src="{{.user.AvatarUrl}}" class="img-rounded">
+            </div>
+            <div class="col-xs-6">
+                <h1><a href="https://github.com/{{.login}}">{{.login}}</a></h1>
+                <h3>{{.user.Name}}</h3>
+                <h4>{{.user.Email}}</h4>
+                <h4><i>{{.repoCount}} repositories</i></h4>
+                <br />
+            </div>
+        </div>
+    </div>
+    <div class="col-xs-6">
+        <div id="donut-chart"></div>
+    </div>
+</div>
+<table class="table table-hover table-condensed table-striped">
+    <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Language</th>
+    </tr>
+    {{range .repos}} 
+        <tr>
+            <td><a href="/repo/{{.Id}}">{{.Name}}</a></td>
+            <td>{{.Description}}</td>
+            <td>{{.Language}}</td>
+        </tr>
+    {{end}}
+</table>
+
+{{template "pie-chart.html" .}}
+
+
+{{template "footer.html" .}}
