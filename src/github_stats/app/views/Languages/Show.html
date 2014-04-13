@@ -1,0 +1,24 @@
+{{set . "title" "Github Stats"}}
+{{template "header.html" .}}
+
+<h1>{{ .language }}</h1>
+<h3>{{ delim .lines }} lines of code</h3>
+<h3>{{ delim .repoCount }} github repositories</h3>
+<br />
+<table class="table table-hover table-condensed table-striped">
+    <tr>
+        <th>Name</th>
+        <th>Owner</th>
+        <th>Description</th>
+        <th>Created at</th>
+    </tr>
+    {{range .repos}} 
+        <tr>
+            <td><a href="/repo/{{.Id}}">{{.Name}}</a></td>
+            <td><a href="/user/{{.Owner}}">{{.Owner}}</a></td>
+            <td>{{.Description}}</td>
+            <td>{{.CreatedAt}}</td>
+        </tr>
+    {{end}}
+</table>
+{{template "footer.html" .}}

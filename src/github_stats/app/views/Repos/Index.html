@@ -1,0 +1,72 @@
+{{set . "title" "Github Stats"}}
+{{template "header.html" .}}
+<h2>{{delim .lines}} lines processed</h2>
+<div class="row">
+  <div class="col-xs-8">
+    <div id="pie-chart" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+  </div>
+  <div class="col-xs-4">
+    <table class="table table-hover table-condensed table-striped" >
+      <tr>
+        <th>Name</th>
+        <th>Line Count</th>
+      </tr>
+      {{range .fileStats}}
+        <tr>
+            <td><a href="/language/{{.Language}}">{{.Language}}</a></td>
+          <td>{{delim .Lines}}</td>
+        </tr>
+      {{end}}
+    </table>
+  </div>
+</div>
+<script>
+    $(function () {
+        $("#pie-chart").highcharts({
+            chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+                plotShadow: false,
+                backgroundColor: null
+            },
+            title: {
+                text: "Breakdown of languages"
+            },
+            tooltip: {
+                pointFormat: "<b>{point.y}</b> lines"
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        color: '#000000',
+                        connectorColor: '#000000',
+                        format: '<b>{point.name}</b>: {point.percentage:.1f}%'
+                    }
+                }
+            },
+            series: [{
+                type: 'pie',
+                name: 'Language share',
+                point: {
+                    events: {
+                        click: function(e) {
+                            location.href = "/language/" + e.point.name;
+                            e.preventDefault();
+                        }
+                    }
+                },
+                data: [
+                    {{range .stats}}
+                      [ {{.Language}}, {{.Lines}} ],
+                    {{end}}
+                ]
+            }]
+        });
+    });
+</script>
+
+
+{{template "footer.html" .}}
