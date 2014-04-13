@@ -22,5 +22,6 @@ _testmain.go
 *.exe
 *.test
 
+bin
 app.conf
-src/main/github.go
+conf.json

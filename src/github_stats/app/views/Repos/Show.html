@@ -2,7 +2,7 @@
 {{template "header.html" .}}
 
 <div class="row">
-    <div class="col-xs-7">
+    <div class="col-xs-6">
         <br>
         <br>
         <br>
@@ -12,7 +12,7 @@
         <h4>{{.repo.Description}}</h4>
         <br />
     </div>
-    <div class="col-xs-5">
+    <div class="col-xs-6">
         <div id="donut-chart"></div>
     </div>
 </div>
@@ -75,7 +75,6 @@
                         }
                     }
                 },
-                data: [["Firefox",6],["MSIE",4],["Chrome",7]],
                 data: [
                     {{range .fileStats}}
                         [{{.Language}}, {{.Lines}}],

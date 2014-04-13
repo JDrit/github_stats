@@ -10,8 +10,28 @@ type Repos struct {
 }
 
 func (c Repos) Index() revel.Result {
-    message := "testing 1 2 3"
-	return c.Render(message)
+	repoStats, err := c.Txn.Select(models.RepoStat{},
+        "select count(*) from repos")
+    if err != nil {
+        panic(err)
+    }
+
+    users, err := c.Txn.Select(models.User{},
+        "select count(distinct(owner)) from repos")
+    if err != nil {
+        panic(err)
+    }
+
+    fileStats, err := c.Txn.Select(models.FileStat{},
+        "select count(*) from files")
+    if err != nil {
+        panic(err)
+    }
+
+    repoCount := repoStats[0].(*models.RepoStat).Count
+    userCount := users[0].(*models.User).Count
+    fileCount := fileStats[0].(*models.FileStat).Count
+    return c.Render(repoCount, userCount, fileCount)
 }
 
 func (c Repos) Show(repoId int) revel.Result {

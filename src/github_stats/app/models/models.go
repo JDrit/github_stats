@@ -26,10 +26,15 @@ type File struct {
 type  FileStat struct {
     Language      string
     Lines         int
+    Count         int
 }
 
 type RepoStat struct {
     Language      string
+    Count         int
+}
+type User struct {
+    Name          string
     Count         int
 }
 

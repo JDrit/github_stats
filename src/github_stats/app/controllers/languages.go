@@ -44,6 +44,12 @@ func (c Languages) Show(language string) revel.Result {
     if err != nil {
         panic(err)
     }
+    
+    fileStatsCount, err := c.Txn.Select(models.FileStat{},
+        "select count(*) from files where language = $1", language)
+    if err != nil {
+        panic(err)
+    }
 
     repos, err := c.Txn.Select(models.Repo{}, 
         "select * from repos where language = $1", 
@@ -55,5 +61,6 @@ func (c Languages) Show(language string) revel.Result {
 
     lines := fileStats[0].(*models.FileStat).Lines
     repoCount := repoStats[0].(*models.RepoStat).Count
-    return c.Render(language, lines, repoCount, repos)
+    fileCount := fileStatsCount[0].(*models.FileStat).Count
+    return c.Render(language, lines, repoCount, repos, fileCount)
 }

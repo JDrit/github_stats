@@ -22,6 +22,7 @@ func init() {
 		revel.CompressFilter,          // Compress the result.
 		revel.ActionInvoker,           // Invoke the action.
 	}
+    
     revel.TemplateFuncs["delim"] = func(num int ) string {
         var buffer bytes.Buffer
         runes := []rune(strconv.Itoa(num))
@@ -42,6 +43,11 @@ func init() {
         return string(runes1)
 
     }
+
+    revel.TemplateFuncs["neq"] = func(a, b interface{}) bool {
+        return a != b
+    }
+
 	// register startup functions with OnAppStart
 	// ( order dependent )
 	// revel.OnAppStart(InitDB())
