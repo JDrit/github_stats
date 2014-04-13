@@ -6,7 +6,7 @@ create table users (
     id integer unique primary key,
     avatarUrl varchar(255),
     login varchar(255) unique,
-    name varchar(255) unique,
+    name varchar(255),
     email varchar(255),
     followers integer,
     following integer,

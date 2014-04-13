@@ -17,15 +17,15 @@ func (c Languages) Index() revel.Result {
     if err != nil {
         panic(err)
     }
-    i := 0
+    
     fileStats := make([](*models.FileStat), 15)
-    for _, r := range stats {
-        f := r.(*models.FileStat)
+    for i := 0 ; i < len(stats) ; i++ {
+        f := stats[i].(*models.FileStat)
         lines += f.Lines
         if i < 15 {
-            fileStats[i] = r.(*models.FileStat)
-            i += 1
+            fileStats[i] = stats[i].(*models.FileStat)
         }
+        stats[i].(*models.FileStat).Count = i + 1
     }
     return c.Render(stats, lines, fileStats)
 }
@@ -37,7 +37,14 @@ func (c Languages) Show(language string) revel.Result {
     if err != nil {
         panic(err)
     }
-    
+
+    lineStats, _ := c.Txn.Select(models.FileStat{},
+        "select sum(code) as code, sum(comment) as comment, " + 
+        "sum(blank) as blank from files where language = $1", language)
+    if err != nil {
+        panic(err)
+    }
+
     repoStats, err := c.Txn.Select(models.RepoStat{},
         "select count(*) from repos " + 
         "where language = $1", language)
@@ -62,5 +69,9 @@ func (c Languages) Show(language string) revel.Result {
     lines := fileStats[0].(*models.FileStat).Lines
     repoCount := repoStats[0].(*models.RepoStat).Count
     fileCount := fileStatsCount[0].(*models.FileStat).Count
-    return c.Render(language, lines, repoCount, repos, fileCount)
+    blank := lineStats[0].(*models.FileStat).Blank
+    code := lineStats[0].(*models.FileStat).Code
+    comment := lineStats[0].(*models.FileStat).Comment
+    return c.Render(language, lines, repoCount, repos, fileCount, 
+        blank, code, comment)
 }

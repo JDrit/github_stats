@@ -1,10 +1,20 @@
 {{set . "title" "Github Stats"}}
 {{template "header.html" .}}
-
-<h1>{{ .language }}</h1>
-<h3>{{ delim .lines }} lines of code</h3>
-<h3>{{ delim .repoCount }} github repositories</h3>
-<h3>{{ delim .fileCount }} files</h3>
+<div class="row">
+    <div class="col-xs-6">
+        <br>
+        <br>
+        <br>
+        <br>
+        <h1>{{ .language }}</h1>
+        <h3>{{ delim .lines }} lines of code</h3>
+        <h3>{{ delim .repoCount }} github repositories</h3>
+        <h3>{{ delim .fileCount }} files</h3>
+    </div>
+    <div class="col-xs-6">
+        <div id="donut-chart"></div>
+    </div>
+</div>
 <br />
 {{if neq .repoCount 0}}
 <table class="table table-hover table-condensed table-striped">
@@ -22,4 +32,45 @@
     {{end}}
 </table>
 {{end}}
+<script>
+    $(function () {
+        $("#donut-chart").highcharts({
+            chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+                plotShadow: false,
+                backgroundColor: null,
+                type: 'pie'
+            },
+            title: {
+                text: "Breakdown of Code"
+            },
+            tooltip: {
+                pointFormat: "<b>{point.y}</b> lines"
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        color: '#000000',
+                        connectorColor: '#000000',
+                        format: '<b>{point.name}</b>: {point.percentage:.1f}%'
+                    }
+                }
+            },
+            series: [{
+                type: 'pie',
+                name: 'Line share',
+                data: [
+                    ['Lines of code', {{.code}}],
+                    ['Lines of comments', {{.comment}}],
+                    ['Blank lines', {{.blank}}],
+                ],
+                innerSize: '50%'
+            }]
+        });
+    });
+</script>
 {{template "footer.html" .}}

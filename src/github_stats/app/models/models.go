@@ -29,6 +29,9 @@ type  FileStat struct {
     Language      string
     Lines         int
     Count         int
+    Code          int
+    Blank         int
+    Comment       int
 }
 
 type RepoStat struct {
