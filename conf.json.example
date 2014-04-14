@@ -1,0 +1,9 @@
+{
+    "apiToken": "",
+    "driver": "",
+    "dbSpec": "",
+    "amqpSpec": "",
+    "queueSize": 10,
+    "dir": "",
+    "queueName": ""
+}

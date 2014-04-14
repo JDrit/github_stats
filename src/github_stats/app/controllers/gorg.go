@@ -6,6 +6,7 @@ import (
     "github.com/revel/revel/modules/db/app"
     _ "github.com/jbarham/gopgsqldriver" 
     r "github.com/revel/revel"
+    "github_stats/app/models"
 )
 
 var (
@@ -20,6 +21,9 @@ type GorpController struct {
 func InitDB() {
     db.Init()
     Dbm = &gorp.DbMap{Db: db.Db, Dialect: gorp.PostgresDialect{}}
+
+    Dbm.AddTableWithName(models.User{}, "users").SetKeys(false, "Login")
+    Dbm.AddTableWithName(models.Repo{}, "repos").SetKeys(false, "Id")
 }
 
 func (c *GorpController) Begin() r.Result {

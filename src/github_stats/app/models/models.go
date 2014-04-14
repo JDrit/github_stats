@@ -10,7 +10,6 @@ type Repo struct {
     Owner         string
     Description   string
     Language      string
-    CreatedAt     string
     Stargazers    int
     Forks         int
 }
@@ -34,6 +33,10 @@ type  FileStat struct {
     Comment       int
 }
 
+type UserStat struct {
+    Count         int
+}
+
 type RepoStat struct {
     Language      string
     Count         int
@@ -47,7 +50,6 @@ type User struct {
     Followers     string
     Following     string
     CreatedAt     string
-    Count         int
 }
 
 func (r *Repo) String() string { 

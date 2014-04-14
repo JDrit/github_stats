@@ -13,35 +13,44 @@ import (
     "database/sql"
     "strconv"
     "flag"
+    "time"
     "encoding/json"
 )
 
 var w sync.WaitGroup
 
-func consumer(id int, db *sql.DB, apiToken, amqpSpec, queueName string) {
-    dir := "/home/jd/tmp/" 
+func consumer(id int, db *sql.DB, apiToken, amqpSpec, queueName, dir string) {
     t := &oauth.Transport{ Token: &oauth.Token{AccessToken: apiToken} }
     client := github.NewClient(t.Client())
-    conn, err := amqp.Dial("amqp://github_stats:github_stats@localhost:5672/")
+    conn, err := amqp.Dial(amqpSpec)
     if err != nil {
         fmt.Fprintf(os.Stderr, "error opening rabbitmq connection\n")
+        fmt.Println(err.Error())
         return
     }
     c, _ := conn.Channel()
     _, err = c.QueueDeclarePassive("users", false, false, false, false, nil)
     if err != nil {
         fmt.Println(err)
+        return
     }
-    users, err := c.Consume(queueName, "consumer-" + strconv.Itoa(id), true, false, false, false, nil)
+    users, err := c.Consume(queueName, "consumer-" + strconv.Itoa(id), false, false, false, false, nil)
     if err != nil {
         fmt.Println(err.Error())
         return
     }
     for user := range users {
-        fmt.Println(string(user.Body))
         repos, _, err := client.Repositories.List(string(user.Body), nil)
+        fmt.Println("proccessing user: " + string(user.Body))
         if err != nil {
             fmt.Println(err)
+            time.Sleep(5 * time.Minute)
+            for {
+                repos, _, err = client.Repositories.List(string(user.Body), nil)
+                if err == nil {
+                    break
+                }
+            }
         }
         for i := 0 ; i < len(repos) ; i += 1 {
             repo := &(repos[i])
@@ -63,10 +72,10 @@ func consumer(id int, db *sql.DB, apiToken, amqpSpec, queueName string) {
                 fmt.Println(err)
                 break
             }
-            cmd := exec.Command("git", "clone", *(repo.CloneURL), dir + *(repo.Name))
+            cmd := exec.Command("git", "clone", *(repo.CloneURL), dir + strconv.Itoa(*(repo.ID)))
             cmd.Start()
             cmd.Wait()
-            out, _ := exec.Command("cloc", "--by-file", "--yaml", dir + *(repo.Name)).Output()
+            out, _ := exec.Command("cloc", "--by-file", "--yaml", dir + strconv.Itoa(*(repo.ID))).Output()
             header := true
             lines := strings.Split(string(out), "\n")
             for i := 0 ; i < len(lines) ; i ++ {
@@ -111,8 +120,10 @@ func consumer(id int, db *sql.DB, apiToken, amqpSpec, queueName string) {
             }
             tx.Commit()
             os.RemoveAll(dir + *(repo.Name))
-            fmt.Fprintf(os.Stdout, "Processed repo: %s\n", *(repo.Name))
+            fmt.Fprintf(os.Stdout, "\tProcessed repo: (%s) %s\n", *(repo.Owner.Login), *(repo.Name))
+            user.Ack(false)
         }
+        fmt.Println("finished processing user: ", string(user.Body))
     }
     fmt.Println("done")
     w.Done()
@@ -124,6 +135,7 @@ type Configuration struct {
     DbSpec      string
     AmqpSpec    string
     QueueName   string
+    Dir         string
     QueueSize   int
 }
 
@@ -168,7 +180,7 @@ func main() {
 
     for i := 0 ; i < *threadFlag ; i++ {
         go consumer(i, db, configuration.ApiToken, configuration.AmqpSpec, 
-            configuration.QueueName)
+            configuration.QueueName, configuration.Dir)
     }
     
     w.Wait()

@@ -23,16 +23,22 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
     conn, err := amqp.Dial(spec)
     if err != nil {
         fmt.Fprintf(os.Stderr, "error opening rabbitmq connection\n")
+        fmt.Println(err)
         return
     }
     c, _ := conn.Channel()
-    queue, err := c.QueueDeclare(queueName, false, false, false, false, nil)
+    _, err = c.QueueDeclare(queueName, false, false, false, false, nil)
     if err != nil {
         fmt.Println(err.Error())
+        return
     }
 
     for {
-        users, _, _ := client.Users.ListAll(&github.UserListOptions{ Since: index }) 
+        users, _, err := client.Users.ListAll(&github.UserListOptions{ Since: index }) 
+        if err != nil {
+            fmt.Println(err)
+            time.Sleep(5 * time.Minute)
+        }
         for i := 0 ; i < len(users) ; i++ {
              msg := amqp.Publishing{
                 DeliveryMode: amqp.Persistent,
@@ -44,11 +50,18 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
             db.QueryRow("select login from users where id = $1", *(users[i].ID)).Scan(&userName)
 
             if len(userName) == 0 {
-                tx, _ := db.Begin()
+                tx, err1 := db.Begin()
+                if err1 != nil {
+                    fmt.Println(err1)
+                }
                 stmt_user, _ := tx.Prepare("INSERT INTO users (id, name, login, email, " + 
                     "avatarUrl, followers, following, createdat) VALUES " + 
                     "($1, $2, $3, $4, $5, $6, $7, $8)")
-                user, _, _ := client.Users.Get(*(users[i].Login))
+                user, _, err := client.Users.Get(*(users[i].Login))
+                if err != nil {
+                    fmt.Println(err)
+                    return
+                }
                 name := ""
                 if user.Name != nil {
                     name = *(user.Name)
@@ -57,21 +70,18 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
                 if user.Email != nil {
                     email = *(user.Email)
                 }
-                _, err := tx.Stmt(stmt_user).Exec(*(user.ID), name, 
+                _, err = tx.Stmt(stmt_user).Exec(*(user.ID), name, 
                     *(user.Login), email, *(user.AvatarURL), 
                     *(user.Followers), *(user.Following), *(user.CreatedAt))
                 if err != nil {
                     fmt.Fprintf(os.Stdout, "user sql error: %s\n", err.Error())
                 }
                 tx.Commit()
-                queue, _ = c.QueueInspect(queueName)
-                for ; queue.Messages > queueSize ;  {
-                    queue, _ = c.QueueInspect(queueName)
-                    fmt.Println("queue full, sleeping...")
-                    time.Sleep(5 * time.Second)
-                }
                 fmt.Fprintf(os.Stdout, "%d: %s added to queue\n", (index + i), *(user.Login))
-                c.Publish("", queueName, false, false, msg)
+                err = c.Publish("", queueName, false, false, msg)
+                if err != nil {
+                    fmt.Println(err)
+                }
             } else {
                 fmt.Fprintf(os.Stdout, "user %s is has already ben processed\n", userName)
             }
@@ -86,6 +96,7 @@ type Configuration struct {
     DbSpec      string
     AmqpSpec    string
     QueueName   string
+    Dir         string
     QueueSize   int
 }
 

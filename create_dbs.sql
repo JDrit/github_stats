@@ -3,9 +3,9 @@ drop table if exists files cascade;
 drop table if exists repos cascade;
 
 create table users (
-    id integer unique primary key,
+    id integer unique,
     avatarUrl varchar(255),
-    login varchar(255) unique,
+    login varchar(255) primary key,
     name varchar(255),
     email varchar(255),
     followers integer,
@@ -16,7 +16,7 @@ create table users (
 create table repos (
     id integer unique primary key,
     name varchar(255) not null,
-    owner varchar(255) not null references users(login) on update cascade on delete cascade,
+    owner varchar(255) not null references users(login) on delete cascade on update cascade,
     description text,
     language varchar(255),
     stargazers integer default 0,
