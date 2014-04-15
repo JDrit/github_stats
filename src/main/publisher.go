@@ -28,6 +28,7 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
     }
     c, _ := conn.Channel()
     _, err = c.QueueDeclare(queueName, false, false, false, false, nil)
+    _, err = c.QueueDeclare("users-priority", false, false, false, false, nil)
     if err != nil {
         fmt.Println(err.Error())
         return
@@ -72,7 +73,7 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
                 }
                 _, err = tx.Stmt(stmt_user).Exec(*(user.ID), name, 
                     *(user.Login), email, *(user.AvatarURL), 
-                    *(user.Followers), *(user.Following), *(user.CreatedAt))
+                    *(user.Followers), *(user.Following), (*(user.CreatedAt)).Unix())
                 if err != nil {
                     fmt.Fprintf(os.Stdout, "user sql error: %s\n", err.Error())
                 }

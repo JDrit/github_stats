@@ -12,6 +12,7 @@ type Repo struct {
     Language      string
     Stargazers    int
     Forks         int
+    CreatedAt     int64
 }
 
 type File struct {
@@ -47,9 +48,10 @@ type User struct {
     AvatarUrl     string
     Login         string
     Email         string
-    Followers     string
-    Following     string
-    CreatedAt     string
+    Followers     int
+    Following     int
+    CreatedAt     int64
+    LastProcessed int64
 }
 
 func (r *Repo) String() string { 

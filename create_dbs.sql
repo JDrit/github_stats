@@ -10,7 +10,8 @@ create table users (
     email varchar(255),
     followers integer,
     following integer,
-    createdat timestamp
+    createdat bigint default 0,
+    lastprocessed bigint default 0
 );
 
 create table repos (
@@ -20,7 +21,8 @@ create table repos (
     description text,
     language varchar(255),
     stargazers integer default 0,
-    forks integer default 0
+    forks integer default 0,
+    createdAt bigint default 0
 );
 
 create table files (

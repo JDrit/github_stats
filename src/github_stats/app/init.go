@@ -4,6 +4,7 @@ import (
     "github.com/revel/revel"
     "strconv"
     "bytes"
+    "time"
 )
 
 func init() {
@@ -46,6 +47,10 @@ func init() {
 
     revel.TemplateFuncs["neq"] = func(a, b interface{}) bool {
         return a != b
+    }
+
+    revel.TemplateFuncs["formatDate"] = func(timestamp int64) string {
+        return time.Unix(timestamp, 0).String()
     }
 
 	// register startup functions with OnAppStart
