@@ -7,6 +7,7 @@ import (
     "github.com/streadway/amqp"
     "fmt"
     "os"
+    "regexp"
     "math/rand"
     "sync"
     "os/exec"
@@ -22,7 +23,7 @@ var w sync.WaitGroup
 
 func processUser(login, dir string, client *github.Client, db *sql.DB) {
     repos, _, err := client.Repositories.List(login, nil)
-    fmt.Println("proccessing user: " + login)
+    fmt.Println("processing user: " + login)
     if err != nil {
         fmt.Println(err)
         time.Sleep(5 * time.Minute)
@@ -62,6 +63,11 @@ func processUser(login, dir string, client *github.Client, db *sql.DB) {
             break
         }
         folder := dir + *(repo.Owner.Login) + "/" + *(repo.Name)
+        if  !regexp.MustCompile(`^[a-zA-Z0-9 ._-]*$`).MatchString(*(repo.Owner.Login)) || 
+            !regexp.MustCompile(`^[a-zA-Z0-9 ._-]*$`).MatchString(*(repo.Name)) {
+            fmt.Println("FAIL")
+            continue
+        }
         cmd := exec.Command("git", "clone", *(repo.CloneURL), folder)
         cmd.Start()
         cmd.Wait()
@@ -119,17 +125,6 @@ func processUser(login, dir string, client *github.Client, db *sql.DB) {
         fmt.Fprintf(os.Stdout, "\tProcessed repo: (%s) %s\n", *(repo.Owner.Login), *(repo.Name))
         tx.Commit()
     }
-    /* Tells the db that the user has been processed */
-    tx, _ := db.Begin()
-    stmt_user, err := tx.Prepare("update users set lastprocessed = $1 where login = $2")
-    if err != nil {
-        fmt.Println(err.Error())
-    }
-    _, err = tx.Stmt(stmt_user).Exec(time.Now().Unix(), login)
-    if err != nil {
-        fmt.Fprintf(os.Stdout, "user error: %s\n", err.Error())
-    }
-    tx.Commit()
 }
 
 func consumer(id int, db *sql.DB, apiToken, amqpSpec, queueName, dir string) {
@@ -149,7 +144,7 @@ func consumer(id int, db *sql.DB, apiToken, amqpSpec, queueName, dir string) {
             continue
         }
         fmt.Println("starting consumer " + queueName + "-" + strconv.Itoa(id))
-        users, err := c.Consume(queueName, "consumer-" + strconv.Itoa(rand.Int()), true, false, false, false, nil)
+        users, err := c.Consume(queueName, "consumer-" + strconv.Itoa(rand.Int()), false, false, false, false, nil)
         if err != nil {
             fmt.Println(err.Error())
             continue
@@ -157,7 +152,21 @@ func consumer(id int, db *sql.DB, apiToken, amqpSpec, queueName, dir string) {
         for user := range users {
             fmt.Println(queueName + ": " + string(user.Body))
             processUser(string(user.Body), dir, client, db)
+            
+            /* Tells the db that the user has been processed */
+            tx, _ := db.Begin()
+            stmt_user, err := tx.Prepare("update users set lastprocessed = $1 where login = $2")
+            if err != nil {
+                fmt.Println(err.Error())
+            }
+            _, err = tx.Stmt(stmt_user).Exec(time.Now().Unix(), string(user.Body))
+            if err != nil {
+                fmt.Fprintf(os.Stdout, "user error: %s\n", err.Error())
+            }
+            tx.Commit()
+
             fmt.Println(queueName + ": finished processing user: " + string(user.Body))
+            user.Ack(false)
         }
         fmt.Println("done")
     }

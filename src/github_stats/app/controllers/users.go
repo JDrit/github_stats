@@ -36,46 +36,49 @@ func (c Users) Show(login string) revel.Result {
         revel.INFO.Printf(e.Error())
     }
     if len(users) == 0 {
-        t := &oauth.Transport{ Token: &oauth.Token{AccessToken: "e7938687a3c4ca77c9fbb899eb01d7459024bc39"} } 
-        client := github.NewClient(t.Client())
+        if token, found := revel.Config.String("api_token"); !found {
+            revel.ERROR.Printf("no api token in the config")
+        } else {
+            t := &oauth.Transport{ Token: &oauth.Token{AccessToken: token} } 
+            client := github.NewClient(t.Client())
 
-        user, _, err := client.Users.Get(login)
+            user, _, err := client.Users.Get(login)
 
-        if err != nil {
-            revel.ERROR.Printf("err getting user %s\n", err.Error())
-            c.Flash.Error("Could not find user, are you sure the login name is correct?")
-            return c.Redirect(routes.Users.Index())
+            if err != nil {
+                revel.ERROR.Printf("err getting user %s\n", err.Error())
+                c.Flash.Error("Could not find user, are you sure the login name is correct?")
+                return c.Redirect(routes.Users.Index())
+            }
+            if user == nil {
+                revel.ERROR.Printf("user does not exist %s\n", login)
+                c.Flash.Error("Could not find user, are you sure the login name is correct?")
+                return c.Redirect(routes.Users.Index())
+            }
+            name := ""
+            email := ""
+            if user.Name != nil {
+                name = *(user.Name)
+            }
+            if user.Email != nil {
+                email = *(user.Email)
+            }
+            newUser := models.User{
+                Id: *(user.ID), 
+                Name: name, 
+                Login: *(user.Login), 
+                AvatarUrl: *(user.AvatarURL),
+                Email: email, 
+                Followers: *(user.Followers), 
+                Following: *(user.Following), 
+                CreatedAt: (*(user.CreatedAt)).Unix()}
+            err = c.Txn.Insert(&newUser)
+            if err != nil {
+                revel.ERROR.Printf("error adding user, %s", err.Error())
+            }
+            c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
+            job := background.ProcessUser{login}
+            jobs.Now(job)
         }
-        if user == nil {
-            revel.ERROR.Printf("user does not exist %s\n", login)
-            c.Flash.Error("Could not find user, are you sure the login name is correct?")
-            return c.Redirect(routes.Users.Index())
-        }
-        name := ""
-        email := ""
-        if user.Name != nil {
-            name = *(user.Name)
-        }
-        if user.Email != nil {
-            email = *(user.Email)
-        }
-        newUser := models.User{
-            Id: *(user.ID), 
-            Name: name, 
-            Login: *(user.Login), 
-            AvatarUrl: *(user.AvatarURL),
-            Email: email, 
-            Followers: *(user.Followers), 
-            Following: *(user.Following), 
-            CreatedAt: (*(user.CreatedAt)).Unix()}
-        err = c.Txn.Insert(&newUser)
-        if err != nil {
-            revel.ERROR.Printf("error adding user, %s", err.Error())
-        }
-
-        c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
-        job := background.ProcessUser{login}
-        jobs.Now(job)
         return c.Redirect(routes.Users.Show(login))
     } else {
         user := users[0]
