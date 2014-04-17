@@ -32,7 +32,7 @@ create table files (
     code integer default 0,
     comment integer default 0,
     language varchar(255),
-    repoid integer not null
+    repoid integer not null references repos(id) on delete cascade on update cascade
 );
 
 create index file_language_idx on files(language);
