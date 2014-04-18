@@ -5,6 +5,7 @@ import (
     "strconv"
     "bytes"
     "time"
+    "net/url"
 )
 
 func init() {
@@ -51,6 +52,10 @@ func init() {
 
     revel.TemplateFuncs["formatDate"] = func(timestamp int64) string {
         return time.Unix(timestamp, 0).String()
+    }
+
+    revel.TemplateFuncs["encode"] = func(message string) string {
+        return url.QueryEscape(message)
     }
 
 	// register startup functions with OnAppStart

@@ -55,11 +55,11 @@ func processRepo(repo *github.Repository, dir string, db *sql.DB, id int) {
         *(repo.Owner.Login), *(repo.Name))
 
     description := ""
-    if repo.Description != nil {
-        description = *(repo.Description)
-    }
+    if repo.Description != nil { description = *(repo.Description) }
+    forks := 0
+    if repo.ForksCount != nil { forks = *(repo.ForksCount) }
     _, err = tx.Stmt(stmt_repo).Exec(*(repo.ID), *(repo.Name), *(repo.Owner.Login), 
-        description, *(repo.ForksCount), (*(repo.CreatedAt)).Unix())
+        description, forks, (*(repo.CreatedAt)).Unix())
     if err != nil {
         fmt.Fprintf(os.Stdout, "repo error: %s\n", err.Error())
     }
@@ -135,9 +135,10 @@ func test(id int, db *sql.DB, apiToken string, conn *amqp.Connection, dir string
     channel.QueueDeclare("users", false, false, false, false, nil)
     channel1.QueueDeclare("users-priority", false, false, false, false, nil)
     channel.Qos(1, 0, false) 
-    regUsers, _ := channel.Consume("users", "consumer-" + strconv.Itoa(rand.Int()),
-        false, false, false, false, nil)
+    channel1.Qos(1, 0, false) 
     priUsers, _ := channel1.Consume("users-priority", "consumer-" + strconv.Itoa(rand.Int()),
+        false, false, false, false, nil)
+    regUsers, _ := channel.Consume("users", "consumer-" + strconv.Itoa(rand.Int()),
         false, false, false, false, nil)
     for {
         var user amqp.Delivery

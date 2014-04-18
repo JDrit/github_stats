@@ -6,7 +6,7 @@ create table users (
     id integer unique,
     avatarUrl varchar(255),
     login varchar(255) primary key,
-    name varchar(255),
+    name varchar(20),
     email varchar(255),
     followers integer,
     following integer,
@@ -15,9 +15,9 @@ create table users (
 );
 
 create table repos (
-    id integer unique primary key,
+    id integer primary key,
     name varchar(255) not null,
-    owner varchar(255) not null references users(login) on delete cascade on update cascade,
+    owner varchar(20) not null references users(login) on delete cascade on update cascade,
     description text,
     language varchar(255),
     stargazers integer default 0,

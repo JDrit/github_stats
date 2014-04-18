@@ -82,8 +82,11 @@ func (c Users) Show(login string) revel.Result {
         return c.Redirect(routes.Users.Show(login))
     } else {
         user := users[0]
-        repos, _ := c.Txn.Select(models.Repo{}, 
-            "select * from repos where lower(owner) = lower($1)", login)
+        repos,e := c.Txn.Select(models.Repo{}, 
+            "select * from repos where owner = $1", user.(*models.User).Login)
+        if e != nil {
+            revel.INFO.Printf(e.Error())
+        }
         repoCount := len(repos)
         working := user.(*models.User).LastProcessed == 0
         if repoCount > 0 {
