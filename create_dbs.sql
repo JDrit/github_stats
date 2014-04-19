@@ -11,7 +11,8 @@ create table users (
     followers integer,
     following integer,
     createdat bigint default 0,
-    lastprocessed bigint default 0
+    lastprocessed bigint default 0,
+    reposleft int default 0
 );
 
 create table repos (

@@ -51,6 +51,7 @@ type User struct {
     Followers     int
     Following     int
     CreatedAt     int64
+    ReposLeft     int
     LastProcessed int64
 }
 

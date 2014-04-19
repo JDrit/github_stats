@@ -41,23 +41,26 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
             time.Sleep(5 * time.Minute)
         }
         for i := 0 ; i < len(users) ; i++ {
-            user, _, _ := client.Users.Get(*(users[i].Login))
+            user, _, err := client.Users.Get(*(users[i].Login))
+            if err != nil {
+                fmt.Println(err.Error())
+                os.Exit(1)
+            }
             stmt_user, _ := db.Prepare("INSERT INTO users (id, name, login, email, " + 
-                "avatarUrl, followers, following, createdat) VALUES " + 
-                "($1, $2, $3, $4, $5, $6, $7, $8)")
+                "avatarUrl, followers, following, createdat, reposleft) VALUES " + 
+                "($1, $2, $3, $4, $5, $6, $7, $8, $9)")
             name := ""
             email := ""
             if user.Name != nil { name = *(user.Name) }
             if user.Email != nil { email = *(user.Email) }
+            repos, _, _ := client.Repositories.List(*(users[i].Login), nil)
             _, err = stmt_user.Exec(*(user.ID), name, 
                 *(user.Login), email, *(user.AvatarURL), 
-                *(user.Followers), *(user.Following), (*(user.CreatedAt)).Unix())
-            if err != nil {
-                fmt.Fprintf(os.Stdout, "user sql error: %s\n", err.Error())
-            }
-            repos, _, _ := client.Repositories.List(*(users[i].Login), nil)
-            for i := 0 ; i < len(repos) ; i++ {
-                repo := &(repos[i])
+                *(user.Followers), *(user.Following), (*(user.CreatedAt)).Unix(), 
+                len(repos))
+
+            for j := 0 ; j < len(repos) ; j++ {
+                repo := &(repos[j])
                 message := *(repo.Owner.Login) + "|" + *(repo.Name)
                 msg := amqp.Publishing{
                     DeliveryMode: amqp.Persistent,

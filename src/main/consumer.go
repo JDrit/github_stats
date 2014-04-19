@@ -32,12 +32,26 @@ type Configuration struct {
 var w sync.WaitGroup
 var configuration Configuration
 
-func processRepo(repo *github.Repository, db *sql.DB, id int) {
+func processRepo(message string, db *sql.DB, id int) {
+    t := &oauth.Transport{ Token: &oauth.Token{AccessToken: configuration.ApiToken} }
+    client := github.NewClient(t.Client())
+
+    info := strings.Split(message, "|")
+    if len(info) != 2 { return }
+    var repo *github.Repository
+    repo, _, err := client.Repositories.Get(info[0], info[1])
+    for ; err != nil ; {
+        time.Sleep(10 * time.Minute)
+        fmt.Println("api error: " + err.Error())
+        repo, _, err = client.Repositories.Get(info[0], info[1])
+    }
+
     stmt_repo, _ := db.Prepare("INSERT INTO repos (id, name, owner, description, " + 
         "forks, createdat) VALUES ($1, $2, $3, $4, $5, $6)")
     stmt_file, _ := db.Prepare("INSERT INTO files (name, blank, comment, " + 
             "code, language, repoid) VALUES ($1, $2, $3, $4, $5, $6)")
     stmt_repo_update, _ := db.Prepare("UPDATE repos set language = $1 where id = $2")
+    stmt_user, _ := db.Prepare("SELECT reposleft from users where login = $1")
 
     folder := configuration.Dir + *(repo.Owner.Login) + "/" + *(repo.Name)
     languages := make(map[string]int)
@@ -100,6 +114,8 @@ func processRepo(repo *github.Repository, db *sql.DB, id int) {
                 language, *(repo.ID)) 
             if err != nil {
                 fmt.Fprintf(os.Stdout, "%d file error: %s\n", id, err.Error())
+                tx.Rollback()
+                return
             }
         }
     }
@@ -116,33 +132,26 @@ func processRepo(repo *github.Repository, db *sql.DB, id int) {
         fmt.Fprintf(os.Stdout, "%d repo update error %s\n", id, err.Error())
     }
 
-    os.RemoveAll(folder)
+    //os.RemoveAll(folder)
     fmt.Fprintf(os.Stdout, "\t%d Processed repo: (%s) %s\n", id, *(repo.Owner.Login), *(repo.Name))
+
+    var reposLeft int
+    err = tx.Stmt(stmt_user).QueryRow(*(repo.Owner.Login)).Scan(&reposLeft)
+    if err != nil {
+        fmt.Println(err.Error())
+    } else if reposLeft == 1 {
+        fmt.Println("finished processing user: " + *(repo.Owner.Login))
+        tx.Exec("UPDATE users set lastprocessed = $1, reposleft = 0 where lower(login) = lower($2)", 
+            time.Now().Unix(), *(repo.Owner.Login))
+    } else {
+         tx.Exec("UPDATE users set reposleft = $1 where lower(login) = lower($2)", 
+            reposLeft - 1, *(repo.Owner.Login))
+    }
+
     tx.Commit()
 }
 
-func processUser(user amqp.Delivery, db *sql.DB, dir, apiToken string, id int) {
-    t := &oauth.Transport{ Token: &oauth.Token{AccessToken: apiToken} }
-    client := github.NewClient(t.Client())
-
-    fmt.Println("Processing user: " + string(user.Body))
-    repos, _, err := client.Repositories.List(string(user.Body), nil)
-    if err != nil {
-        fmt.Println(err.Error())
-    }
-    for i := 0 ; i < len(repos) ; i += 1 {
-        processRepo(&(repos[i]), db, id)
-    }
-    db.Exec("UPDATE users set lastprocessed = $1 where lower(login) = lower($2)", 
-        time.Now().Unix(), string(user.Body))
-    user.Ack(false)
-    fmt.Println("Finished processing user: " + string(user.Body))
-}
-
 func consumer(id int, db *sql.DB, conn *amqp.Connection) {
-    t := &oauth.Transport{ Token: &oauth.Token{AccessToken: configuration.ApiToken} }
-    client := github.NewClient(t.Client())
-
     fmt.Println("starting processer")
     channel, _ := conn.Channel()
     channel.QueueDeclare("repos", false, false, false, false, nil)
@@ -154,30 +163,16 @@ func consumer(id int, db *sql.DB, conn *amqp.Connection) {
     regRepos, _ := channel.Consume("repos", "consumer-" + strconv.Itoa(rand.Int()),
         false, false, false, false, nil)
     for {
-        var repo amqp.Delivery
+        var message amqp.Delivery
         select {
-        case repo = <- priRepos:
-            info := strings.Split(string(repo.Body), "|")
-            if len(info) != 2 { 
-                repo.Ack(false)
-                continue 
-            }
-            githubRepo, _, _ := client.Repositories.Get(info[0], info[1])            
-            processRepo(githubRepo, db, id)
-            repo.Ack(false)
-        case repo = <- regRepos:
-            info := strings.Split(string(repo.Body), "|")
-            if len(info) != 2 { 
-                repo.Ack(false)
-                continue 
-            }
-            githubRepo, _, _ := client.Repositories.Get(info[0], info[1])            
-            processRepo(githubRepo, db, id)
-            repo.Ack(false)
+        case message = <- priRepos:
+            processRepo(string(message.Body), db, id)
+            message.Ack(false)
+        case message = <- regRepos:
+            processRepo(string(message.Body), db, id)
+            message.Ack(false)
         }
     }
-
-
 }
 
 func main() {
@@ -225,8 +220,6 @@ func main() {
         fmt.Println("could not setp up rabbitmq connection", err)
         return
     }
-
-
     for i := 0 ; i < *threadFlag ; i++ {
         go consumer(i, db, conn)
     }

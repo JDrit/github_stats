@@ -30,6 +30,11 @@
         {{else}}
         <div class="well">
             <h5>User being processed...</h5>
+            {{if eq .user.ReposLeft 1}}
+                <h5>{{.user.ReposLeft}} user repository left to processes</h5>
+            {{else}}    
+                <h5>{{.user.ReposLeft}} user repositories left to processes</h5>
+            {{end}}
             <h5><strong>Please wait</strong></h5>
         </div>
         {{end}}

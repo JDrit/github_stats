@@ -7,9 +7,7 @@ import (
     "github.com/google/go-github/github"
     "code.google.com/p/goauth2/oauth"
     "github.com/streadway/amqp"
-    "bytes"
     "time"
-    "strconv"
 )
 
 type Users struct {
@@ -28,12 +26,9 @@ func (c Users) Search() revel.Result {
 
 
 func (c Users) Show(login string) revel.Result {
-    users, e := c.Txn.Select(models.User{}, 
+    users, _ := c.Txn.Select(models.User{}, 
         "select * from users where lower(login) = lower($1)", 
         login)
-    if e != nil {
-        revel.INFO.Printf(e.Error())
-    }
     if len(users) == 0 {
         if token, found := revel.Config.String("api_token"); !found {
             revel.ERROR.Printf("no api token in the config")
@@ -60,6 +55,7 @@ func (c Users) Show(login string) revel.Result {
             if user.Email != nil {
                 email = *(user.Email)
             }
+            repos, _, _ := client.Repositories.List(*(user.Login), nil)
             newUser := models.User{
                 Id: *(user.ID), 
                 Name: name, 
@@ -68,9 +64,9 @@ func (c Users) Show(login string) revel.Result {
                 Email: email, 
                 Followers: *(user.Followers), 
                 Following: *(user.Following), 
+                ReposLeft: len(repos),
                 CreatedAt: (*(user.CreatedAt)).Unix()}
             c.Txn.Insert(&newUser)
-            repos, _, _ := client.Repositories.List(*(user.Login), nil)
             spec, _ := revel.Config.String("amqp_url")
             conn, err := amqp.Dial(spec)
             channel, _ := conn.Channel()
@@ -83,10 +79,8 @@ func (c Users) Show(login string) revel.Result {
                     ContentType:  "text/plain",
                     Body:         []byte(message),
                 }
-                repos, _ := c.Txn.Select(models.Repo{}, 
-                    "select name from repos where name = $1 and owner = $2",
-                    *(repo.Name), *(repo.Owner.Login))
-                if len(repos) == 0 { channel.Publish("", "repos-priority", false, false, msg) }
+                dbRepo, _ := c.Txn.Get(models.Repo{}, *(repo.ID))
+                if dbRepo == nil { channel.Publish("", "repos-priority", false, false, msg) }
             }
 
             c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
@@ -104,16 +98,9 @@ func (c Users) Show(login string) revel.Result {
         repoCount := len(repos)
         working := user.(*models.User).LastProcessed == 0
         if repoCount > 0 {
-            var repoIds bytes.Buffer
-            repoIds.WriteString("select language, sum(code + comment + blank) as lines " + 
-                "from files where repoid in (")
-            for i := 0 ; i < len(repos) - 1; i++ {
-                repoIds.WriteString(strconv.Itoa(repos[i].(*models.Repo).Id) + ", ")
-            }
-            repoIds.WriteString(strconv.Itoa(repos[len(repos) - 1].(*models.Repo).Id))
-            repoIds.WriteString(") group by language order by lines desc limit 10")
-            
-            fileStats, _ := c.Txn.Select(models.FileStat{}, repoIds.String())
+            fileStats, _ := c.Txn.Select(models.FileStat{}, "select language, sum(code + comment + blank) as lines " + 
+                "from files where repoid in (select id from repos where owner = $1) group by language " + 
+                "order by lines desc limit 10", user.(*models.User).Login)
             return c.Render(repos, fileStats, login, repoCount, user, working)
         } else {
             return c.Render(repos, login, repoCount, user, working)
