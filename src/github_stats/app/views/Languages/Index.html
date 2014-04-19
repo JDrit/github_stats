@@ -17,7 +17,7 @@
       {{range .dbLineStats}}
         <tr>
           <td>{{.Count}}</td>
-          <td><a href="/language/{{.Language}}">{{.Language}}</a></td>
+          <td><a href="/languages?language={{.Language}}">{{.Language}}</a></td>
           <td>{{delim .Lines}}</td>
         </tr>
       {{end}}

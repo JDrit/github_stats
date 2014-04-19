@@ -132,7 +132,7 @@ func processRepo(message string, db *sql.DB, id int) {
         fmt.Fprintf(os.Stdout, "%d repo update error %s\n", id, err.Error())
     }
 
-    //os.RemoveAll(folder)
+    os.RemoveAll(folder)
     fmt.Fprintf(os.Stdout, "\t%d Processed repo: (%s) %s\n", id, *(repo.Owner.Login), *(repo.Name))
 
     var reposLeft int

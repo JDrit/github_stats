@@ -6,7 +6,7 @@ module:testrunner
 module:jobs
 
 GET     /                                       Languages.Index
-GET     /language/:language                     Languages.Show
+GET     /languages                              Languages.Show
 GET     /users                                  Users.Index
 GET     /user/:login                            Users.Show
 GET     /search                                 Users.Search

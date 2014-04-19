@@ -34,7 +34,8 @@ func (c Languages) Index() revel.Result {
     return c.Render(dbLineStats, lines, fileStats, repoStats)
 }
 
-func (c Languages) Show(language string) revel.Result {
+func (c Languages) Show() revel.Result {
+    language := c.Params.Get("language")
     fileStats, err := c.Txn.Select(models.FileStat{}, 
         "select sum(code + comment + blank) as lines " + 
         "from files where language = $1", language)
