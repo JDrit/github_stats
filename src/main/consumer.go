@@ -19,16 +19,27 @@ import (
     "encoding/json"
 )
 
-var w sync.WaitGroup
+type Configuration struct {
+    ApiToken    string
+    Driver      string
+    DbSpec      string
+    AmqpSpec    string
+    QueueName   string
+    QueueName1  string
+    Dir         string
+}
 
-func processRepo(repo *github.Repository, dir string, db *sql.DB, id int) {
+var w sync.WaitGroup
+var configuration Configuration
+
+func processRepo(repo *github.Repository, db *sql.DB, id int) {
     stmt_repo, _ := db.Prepare("INSERT INTO repos (id, name, owner, description, " + 
         "forks, createdat) VALUES ($1, $2, $3, $4, $5, $6)")
     stmt_file, _ := db.Prepare("INSERT INTO files (name, blank, comment, " + 
             "code, language, repoid) VALUES ($1, $2, $3, $4, $5, $6)")
     stmt_repo_update, _ := db.Prepare("UPDATE repos set language = $1 where id = $2")
 
-    folder := dir + *(repo.Owner.Login) + "/" + *(repo.Name)
+    folder := configuration.Dir + *(repo.Owner.Login) + "/" + *(repo.Name)
     languages := make(map[string]int)
     if  !regexp.MustCompile(`^[a-zA-Z0-9 ._-]*$`).MatchString(*(repo.Owner.Login)) || 
         !regexp.MustCompile(`^[a-zA-Z0-9 ._-]*$`).MatchString(*(repo.Name)) {
@@ -75,7 +86,7 @@ func processRepo(repo *github.Repository, dir string, db *sql.DB, id int) {
         } else if strings.Trim(lines[i], " ") == "SUM:" {
             break
         } else if !header {
-            name := lines[i][len(dir):len(lines[i]) - 1]
+            name := lines[i][len(configuration.Dir):len(lines[i]) - 1]
             i += 1
             blank, _ := strconv.Atoi(strings.Trim(strings.Split(lines[i], ":")[1], " "))
             i += 1
@@ -120,7 +131,7 @@ func processUser(user amqp.Delivery, db *sql.DB, dir, apiToken string, id int) {
         fmt.Println(err.Error())
     }
     for i := 0 ; i < len(repos) ; i += 1 {
-        processRepo(&(repos[i]), dir, db, id)
+        processRepo(&(repos[i]), db, id)
     }
     db.Exec("UPDATE users set lastprocessed = $1 where lower(login) = lower($2)", 
         time.Now().Unix(), string(user.Body))
@@ -128,40 +139,46 @@ func processUser(user amqp.Delivery, db *sql.DB, dir, apiToken string, id int) {
     fmt.Println("Finished processing user: " + string(user.Body))
 }
 
-func test(id int, db *sql.DB, apiToken string, conn *amqp.Connection, dir string) {
+func consumer(id int, db *sql.DB, conn *amqp.Connection) {
+    t := &oauth.Transport{ Token: &oauth.Token{AccessToken: configuration.ApiToken} }
+    client := github.NewClient(t.Client())
 
+    fmt.Println("starting processer")
     channel, _ := conn.Channel()
-    channel1, _ := conn.Channel()
-    channel.QueueDeclare("users", false, false, false, false, nil)
-    channel1.QueueDeclare("users-priority", false, false, false, false, nil)
-    channel.Qos(1, 0, false) 
-    channel1.Qos(1, 0, false) 
-    priUsers, _ := channel1.Consume("users-priority", "consumer-" + strconv.Itoa(rand.Int()),
+    channel.QueueDeclare("repos", false, false, false, false, nil)
+    channel.QueueDeclare("repos-priority", false, false, false, false, nil)
+    channel.Qos(1, 0, true)
+
+    priRepos, _ := channel.Consume("repos-priority", "consumer-" + strconv.Itoa(rand.Int()),
         false, false, false, false, nil)
-    regUsers, _ := channel.Consume("users", "consumer-" + strconv.Itoa(rand.Int()),
+    regRepos, _ := channel.Consume("repos", "consumer-" + strconv.Itoa(rand.Int()),
         false, false, false, false, nil)
     for {
-        var user amqp.Delivery
+        var repo amqp.Delivery
         select {
-        case user = <- priUsers:
-            processUser(user, db, dir, apiToken, id)
-        case user = <- regUsers:
-            processUser(user, db, dir, apiToken, id)
+        case repo = <- priRepos:
+            info := strings.Split(string(repo.Body), "|")
+            if len(info) != 2 { 
+                repo.Ack(false)
+                continue 
+            }
+            githubRepo, _, _ := client.Repositories.Get(info[0], info[1])            
+            processRepo(githubRepo, db, id)
+            repo.Ack(false)
+        case repo = <- regRepos:
+            info := strings.Split(string(repo.Body), "|")
+            if len(info) != 2 { 
+                repo.Ack(false)
+                continue 
+            }
+            githubRepo, _, _ := client.Repositories.Get(info[0], info[1])            
+            processRepo(githubRepo, db, id)
+            repo.Ack(false)
         }
     }
-}
 
-type Configuration struct {
-    ApiToken    string
-    Driver      string
-    DbSpec      string
-    AmqpSpec    string
-    QueueName   string
-    QueueName1  string
-    Dir         string
-    QueueSize   int
-}
 
+}
 
 func main() {
     threadFlag := flag.Int("threads", 1, "The number of threads to download repos")
@@ -188,7 +205,6 @@ func main() {
         return
     }
     decoder := json.NewDecoder(file)
-    configuration := Configuration{}
     err = decoder.Decode(&configuration)
     if err != nil {
         fmt.Println(err.Error())
@@ -210,8 +226,9 @@ func main() {
         return
     }
 
+
     for i := 0 ; i < *threadFlag ; i++ {
-        go test(i, db, configuration.ApiToken, conn, configuration.Dir)
+        go consumer(i, db, conn)
     }
     
     w.Wait()

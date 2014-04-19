@@ -2,14 +2,14 @@
 {{template "header.html" .}}
 
 <div class="row">
-    <div class="col-xs-6">
+    <div class="col-md-6">
         <br>
         <br>
         <div class="row">
-            <div class="col-xs-6">
+            <div class="col-sm-6">
                 <img width="200" height="200" src="{{.user.AvatarUrl}}" class="img-rounded">
             </div>
-            <div class="col-xs-6">
+            <div class="col-sm-6">
                 <h1><a href="https://github.com/{{.login}}">{{.login}}</a></h1>
                 <h3>{{.user.Name}}</h3>
                 <h4>{{.user.Email}}</h4>
@@ -35,7 +35,7 @@
         {{end}}
 
     </div>
-    <div class="col-xs-6">
+    <div class="col-md-6">
         <div id="donut-chart"></div>
     </div>
 </div>

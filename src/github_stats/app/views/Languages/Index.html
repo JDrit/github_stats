@@ -3,17 +3,18 @@
 <h2 class="text-center">{{delim .lines}} lines processed</h2>
 <br>
 <div class="row">
-  <div class="col-xs-7">
+  <div class="col-md-7">
     <div id="donut-chart" ></div>
+    <div id="repo-chart" ></div>
   </div>
-  <div class="col-xs-5">
+  <div class="col-md-5">
     <table class="table table-hover table-condensed table-striped" >
       <tr>
         <th>#</th>
         <th>Name</th>
         <th>Line Count</th>
       </tr>
-      {{range .stats}}
+      {{range .dbLineStats}}
         <tr>
           <td>{{.Count}}</td>
           <td><a href="/language/{{.Language}}">{{.Language}}</a></td>
@@ -24,5 +25,55 @@
   </div>
 </div>
 {{template "pie-chart.html" .}}
+
+<script>
+    $(function () {
+        $("#repo-chart").highcharts({
+            chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+                plotShadow: false,
+                backgroundColor: null,
+                type: 'pie'
+            },
+            title: {
+                text: "Breakdown of languages by repository count"
+            },
+            tooltip: {
+                pointFormat: "<b>{point.y}</b> repositories"
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        color: '#000000',
+                        connectorColor: '#000000',
+                        format: '<b>{point.name}</b>: {point.percentage:.1f}%'
+                    }
+                }
+            },
+            series: [{
+                type: 'pie',
+                name: 'Language share',
+                point: {
+                    events: {
+                        click: function(e) {
+                            location.href = "/language/" + e.point.name;
+                            e.preventDefault();
+                        }
+                    }
+                },
+                data: [
+                    {{range .repoStats}}
+                        [{{.Language}}, {{.Count}}],
+                    {{end}}
+                ],
+                innerSize: '50%'
+            }]
+        });
+    });
+</script>
 
 {{template "footer.html" .}}

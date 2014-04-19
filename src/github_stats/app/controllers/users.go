@@ -4,11 +4,11 @@ import (
     "github.com/revel/revel"
     "github_stats/app/models"
     "github_stats/app/routes"
-    "github_stats/app/background"
-    "github.com/revel/revel/modules/jobs/app/jobs"
     "github.com/google/go-github/github"
     "code.google.com/p/goauth2/oauth"
+    "github.com/streadway/amqp"
     "bytes"
+    "time"
     "strconv"
 )
 
@@ -28,7 +28,6 @@ func (c Users) Search() revel.Result {
 
 
 func (c Users) Show(login string) revel.Result {
-    revel.INFO.Printf(login)
     users, e := c.Txn.Select(models.User{}, 
         "select * from users where lower(login) = lower($1)", 
         login)
@@ -43,7 +42,6 @@ func (c Users) Show(login string) revel.Result {
             client := github.NewClient(t.Client())
 
             user, _, err := client.Users.Get(login)
-
             if err != nil {
                 revel.ERROR.Printf("err getting user %s\n", err.Error())
                 c.Flash.Error("Could not find user, are you sure the login name is correct?")
@@ -71,13 +69,29 @@ func (c Users) Show(login string) revel.Result {
                 Followers: *(user.Followers), 
                 Following: *(user.Following), 
                 CreatedAt: (*(user.CreatedAt)).Unix()}
-            err = c.Txn.Insert(&newUser)
-            if err != nil {
-                revel.ERROR.Printf("error adding user, %s", err.Error())
+            c.Txn.Insert(&newUser)
+            repos, _, _ := client.Repositories.List(*(user.Login), nil)
+            spec, _ := revel.Config.String("amqp_url")
+            conn, err := amqp.Dial(spec)
+            channel, _ := conn.Channel()
+            for i := 0 ; i < len(repos) ; i++ {
+                repo := &(repos[i])
+                message := *(repo.Owner.Login) + "|" + *(repo.Name)
+                msg := amqp.Publishing{
+                    DeliveryMode: amqp.Persistent,
+                    Timestamp:    time.Now(),
+                    ContentType:  "text/plain",
+                    Body:         []byte(message),
+                }
+                repos, _ := c.Txn.Select(models.Repo{}, 
+                    "select name from repos where name = $1 and owner = $2",
+                    *(repo.Name), *(repo.Owner.Login))
+                if len(repos) == 0 { channel.Publish("", "repos-priority", false, false, msg) }
             }
+
             c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
-            job := background.ProcessUser{login}
-            jobs.Now(job)
+            //job := background.ProcessUser{login}
+            //jobs.Now(job)
         }
         return c.Redirect(routes.Users.Show(login))
     } else {

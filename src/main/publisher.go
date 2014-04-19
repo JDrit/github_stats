@@ -27,8 +27,8 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
         return
     }
     c, _ := conn.Channel()
-    _, err = c.QueueDeclare(queueName, false, false, false, false, nil)
-    _, err = c.QueueDeclare("users-priority", false, false, false, false, nil)
+    _, err = c.QueueDeclare("repos", false, false, false, false, nil)
+    _, err = c.QueueDeclare("repos-priority", false, false, false, false, nil)
     if err != nil {
         fmt.Println(err.Error())
         return
@@ -41,50 +41,45 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
             time.Sleep(5 * time.Minute)
         }
         for i := 0 ; i < len(users) ; i++ {
-             msg := amqp.Publishing{
-                DeliveryMode: amqp.Persistent,
-                Timestamp:    time.Now(),
-                ContentType:  "text/plain",
-                Body:         []byte(*(users[i].Login)),
+            user, _, _ := client.Users.Get(*(users[i].Login))
+            stmt_user, _ := db.Prepare("INSERT INTO users (id, name, login, email, " + 
+                "avatarUrl, followers, following, createdat) VALUES " + 
+                "($1, $2, $3, $4, $5, $6, $7, $8)")
+            name := ""
+            email := ""
+            if user.Name != nil { name = *(user.Name) }
+            if user.Email != nil { email = *(user.Email) }
+            _, err = stmt_user.Exec(*(user.ID), name, 
+                *(user.Login), email, *(user.AvatarURL), 
+                *(user.Followers), *(user.Following), (*(user.CreatedAt)).Unix())
+            if err != nil {
+                fmt.Fprintf(os.Stdout, "user sql error: %s\n", err.Error())
             }
-            var userName string
-            db.QueryRow("select login from users where id = $1", *(users[i].ID)).Scan(&userName)
+            repos, _, _ := client.Repositories.List(*(users[i].Login), nil)
+            for i := 0 ; i < len(repos) ; i++ {
+                repo := &(repos[i])
+                message := *(repo.Owner.Login) + "|" + *(repo.Name)
+                msg := amqp.Publishing{
+                    DeliveryMode: amqp.Persistent,
+                    Timestamp:    time.Now(),
+                    ContentType:  "text/plain",
+                    Body:         []byte(message),
+                }
+                var name string
+                db.QueryRow("select name from repos where name = $1 and owner = $2", 
+                    *(repo.Name), *(repo.Owner.Login)).Scan(&name)
 
-            if len(userName) == 0 {
-                tx, err1 := db.Begin()
-                if err1 != nil {
-                    fmt.Println(err1)
+                if len(name) == 0 {
+                    fmt.Fprintf(os.Stdout, "%d: (%s) %s added to queue\n",
+                        (index + i), *(repo.Owner.Login), *(repo.Name))
+                    err = c.Publish("", "repos", false, false, msg)
+                    if err != nil {
+                        fmt.Println(err)
+                    }
+                } else {
+                    fmt.Fprintf(os.Stdout, "repo (%s) %s has already ben processed\n", 
+                        *(repo.Owner.Login), *(repo.Name))
                 }
-                stmt_user, _ := tx.Prepare("INSERT INTO users (id, name, login, email, " + 
-                    "avatarUrl, followers, following, createdat) VALUES " + 
-                    "($1, $2, $3, $4, $5, $6, $7, $8)")
-                user, _, err := client.Users.Get(*(users[i].Login))
-                if err != nil {
-                    fmt.Println(err)
-                    return
-                }
-                name := ""
-                if user.Name != nil {
-                    name = *(user.Name)
-                }
-                email := ""
-                if user.Email != nil {
-                    email = *(user.Email)
-                }
-                _, err = tx.Stmt(stmt_user).Exec(*(user.ID), name, 
-                    *(user.Login), email, *(user.AvatarURL), 
-                    *(user.Followers), *(user.Following), (*(user.CreatedAt)).Unix())
-                if err != nil {
-                    fmt.Fprintf(os.Stdout, "user sql error: %s\n", err.Error())
-                }
-                tx.Commit()
-                fmt.Fprintf(os.Stdout, "%d: %s added to queue\n", (index + i), *(user.Login))
-                err = c.Publish("", queueName, false, false, msg)
-                if err != nil {
-                    fmt.Println(err)
-                }
-            } else {
-                fmt.Fprintf(os.Stdout, "user %s is has already ben processed\n", userName)
             }
         }
         index += len(users)

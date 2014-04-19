@@ -10,24 +10,28 @@ type Languages struct {
 }
 
 func (c Languages) Index() revel.Result {
-    stats, err := c.Txn.Select(models.FileStat{},
+    dbLineStats, _ := c.Txn.Select(models.FileStat{},
         "select language, sum(code + comment + blank) as lines " + 
         "from files group by language order by lines desc")
+    dbRepoStats, _ := c.Txn.Select(models.RepoStat{},
+        "select language, count(*) as count from repos where language != '' " + 
+        "group by language order by count desc")
     lines := 0
-    if err != nil {
-        panic(err)
-    }
     
     fileStats := make([](*models.FileStat), 15)
-    for i := 0 ; i < len(stats) ; i++ {
-        f := stats[i].(*models.FileStat)
+    for i := 0 ; i < len(dbLineStats) ; i++ {
+        f := dbLineStats[i].(*models.FileStat)
         lines += f.Lines
         if i < 15 {
-            fileStats[i] = stats[i].(*models.FileStat)
+            fileStats[i] = dbLineStats[i].(*models.FileStat)
         }
-        stats[i].(*models.FileStat).Count = i + 1
+        dbLineStats[i].(*models.FileStat).Count = i + 1
     }
-    return c.Render(stats, lines, fileStats)
+    repoStats := make([](*models.RepoStat), 15)
+    for i := 0 ; i < len(repoStats) ; i++  {
+        repoStats[i] = dbRepoStats[i].(*models.RepoStat)
+    }
+    return c.Render(dbLineStats, lines, fileStats, repoStats)
 }
 
 func (c Languages) Show(language string) revel.Result {

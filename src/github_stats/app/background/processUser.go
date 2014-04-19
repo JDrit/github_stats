@@ -26,7 +26,7 @@ func (request ProcessUser) Run() {
             ContentType:  "text/plain",                                                                                                      
             Body:         []byte(request.Login),
         }
-        err = c.Publish("", "users-priority", false, false, msg)
+        err = c.Publish("", "repos-priority", false, false, msg)
         if err != nil {
             revel.ERROR.Printf("error publishing user\n%s", err.Error())
             return
