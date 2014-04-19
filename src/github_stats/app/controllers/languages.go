@@ -3,6 +3,7 @@ package controllers
 import (
     "github.com/revel/revel"
     "github_stats/app/models"
+    "github_stats/app/routes"
 )
 
 type Languages struct {
@@ -36,11 +37,15 @@ func (c Languages) Index() revel.Result {
 
 func (c Languages) Show() revel.Result {
     language := c.Params.Get("language")
+    if language == "" {
+        return c.Redirect(routes.Languages.Index())
+    }
     fileStats, err := c.Txn.Select(models.FileStat{}, 
         "select sum(code + comment + blank) as lines " + 
         "from files where language = $1", language)
     if err != nil {
-        panic(err)
+        c.Flash.Error("Invalid language")
+        return c.Redirect(routes.Languages.Index())
     }
 
     lineStats, _ := c.Txn.Select(models.FileStat{},
