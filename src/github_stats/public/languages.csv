@@ -1,0 +1,22 @@
+name,color
+Bourne Shell,#C0C0C0
+C,#808080
+C++,#000000
+C/C++ Header,#FF0000
+CoffeeScript,#800000
+CSS,#FFFF00
+Erlang,#808000
+HTML,#00FF00
+Java,#008000
+Javascript,#00FFFF
+Lisp,#008080
+make,#0000FF
+Object C,#000080
+PHP,#FF00FF
+Python,#800080
+Ruby,#EEC591
+SASS,#458B00
+Scala,#FF7256
+XML,#3F3FBF
+YAML,#8B0000
+

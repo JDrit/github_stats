@@ -2,12 +2,43 @@ package controllers
 
 import (
     "github.com/revel/revel"
+    "github.com/revel/revel/cache"
     "github_stats/app/models"
     "github_stats/app/routes"
+    "time"
 )
 
 type Languages struct {
     Application
+}
+
+func (c Languages) Top() revel.Result {
+    type Language struct {
+        Name    string
+        Color   string
+    }
+    var results []Language
+    if err := cache.Get("languages", &results); err == nil {
+        return c.RenderJson(results)
+    }
+
+    results = make([]Language, 20)
+    languages, _ := c.Txn.Select(models.RepoStat{},
+        "select l.language from (select language from files where language != '' " + 
+                "group by language order by count(*) desc limit 20) l order by l.language")
+    colors := [...]string {"#C0C0C0", "#808080", "#000000", 
+        "#FF0000", "#800000", "#FFFF00", "#808000", "#00FF00",
+        "#008000", "#00FFFF", "#008080", "#0000FF", "#000080", 
+        "#FF00FF", "#800080", "#EEC591", "#458B00", "#FF7256", 
+        "3F3FBF", "#8B0000"}
+    for i := 0 ; i < len(languages) ; i++ {
+        results[i] = Language { 
+            Name: languages[i].(*models.RepoStat).Language,
+            Color: colors[i],
+        }
+    }
+    go cache.Set("languages", results, 1 * time.Hour)
+    return c.RenderJson(results)
 }
 
 func (c Languages) Index() revel.Result {

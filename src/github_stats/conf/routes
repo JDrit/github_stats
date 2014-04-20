@@ -7,11 +7,13 @@ module:jobs
 
 GET     /                                       Languages.Index
 GET     /languages                              Languages.Show
+GET     /languages/top                          Languages.Top
 GET     /users                                  Users.Index
 GET     /user/:login                            Users.Show
 GET     /search                                 Users.Search
 GET     /repos                                  Repos.Index
 GET     /repo/:repoId                           Repos.Show
+GET     /stats                                  Repos.Stat
 
 # Ignore favicon requests
 GET     /favicon.ico                            404
