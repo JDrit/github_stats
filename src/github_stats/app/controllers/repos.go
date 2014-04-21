@@ -6,6 +6,7 @@ import (
     "github_stats/app/models"
     "github_stats/app/routes"
     "time"
+    "bytes"
 )
 
 type Repos struct {
@@ -13,26 +14,30 @@ type Repos struct {
 }
 
 func (c Repos) Stat() revel.Result {
+    limit := 20
     var results [][]int
+    var buffer bytes.Buffer
     if err := cache.Get("stats", &results); err == nil {
         return c.RenderJson(results)
     }
-
     languages, _ := c.Txn.Select(models.RepoStat{},
         "select l.language from (select language from files where language != '' " + 
-                "group by language order by count(*) desc limit 20) l order by l.language")
-    results = make([][]int, 20)
+        "group by language order by count(*) desc limit $1) l order by l.language", limit)
+    for i := 0 ; i < len(languages) - 1 ; i++ {
+        buffer.WriteString("'" + languages[i].(*models.RepoStat).Language + "', ")
+    }
+    buffer.WriteString("'" + languages[len(languages) - 1].(*models.RepoStat).Language + "'")
+    results = make([][]int, limit)
     for i := 0 ; i < len(languages) ; i++ {
-        revel.INFO.Printf(languages[i].(*models.RepoStat).Language)
         repoStats, _ := c.Txn.Select(models.RepoStat{}, 
-            "select l.count, l.language from (select count(*) as count, language from files where repoid in " + 
-                "(select id from repos where language = $1) and language in " + 
-                "(select language from files where language != '' group by language order by count(*) desc limit 20) " + 
-            "group by language order by count(*) desc) l order by l.language", languages[i].(*models.RepoStat).Language)
-        row := make([]int, 20)
+            "select l.count, l.language from (select count(*) as count, language " + 
+            "from files where repoid in (select id from repos where language = $1) " + 
+            "and language in (" + buffer.String()  + ") group by language order by " + 
+            "count(*) desc) l order by l.language", 
+            languages[i].(*models.RepoStat).Language)
+        row := make([]int, limit)
         for j := 0 ; j < len(repoStats) ; j++ {
             row[j] = repoStats[j].(*models.RepoStat).Count
-            revel.INFO.Printf("\t\t%s %d\n", repoStats[j].(*models.RepoStat).Language, repoStats[j].(*models.RepoStat).Count)
         }
         results[i] = row
     }

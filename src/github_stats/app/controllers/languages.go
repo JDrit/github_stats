@@ -11,26 +11,27 @@ import (
 type Languages struct {
     Application
 }
-
+// Used to get the list of top languages
 func (c Languages) Top() revel.Result {
     type Language struct {
         Name    string
         Color   string
     }
     var results []Language
+    limit := 20
     if err := cache.Get("languages", &results); err == nil {
         return c.RenderJson(results)
     }
 
-    results = make([]Language, 20)
+    results = make([]Language, limit)
     languages, _ := c.Txn.Select(models.RepoStat{},
         "select l.language from (select language from files where language != '' " + 
-                "group by language order by count(*) desc limit 20) l order by l.language")
-    colors := [...]string {"#C0C0C0", "#808080", "#000000", 
-        "#FF0000", "#800000", "#FFFF00", "#808000", "#00FF00",
-        "#008000", "#00FFFF", "#008080", "#0000FF", "#000080", 
-        "#FF00FF", "#800080", "#EEC591", "#458B00", "#FF7256", 
-        "3F3FBF", "#8B0000"}
+                "group by language order by count(*) desc limit $1) l order by l.language", limit)
+    colors := [...]string {"#FF0000", "#617C58", "#52D017", 
+        "#C0C0C0", "#0000FF", "#808080", "#0000A0", "#ADD8E6",
+        "#FFA500", "#800080", "#A52A2A", "#FFFF00", "#800000", 
+        "#00FF00", "#008000", "#FF00FF", "#FF0000", "#57FEFF", 
+        "FFA62F", "#8E35EF"}
     for i := 0 ; i < len(languages) ; i++ {
         results[i] = Language { 
             Name: languages[i].(*models.RepoStat).Language,
@@ -42,13 +43,21 @@ func (c Languages) Top() revel.Result {
 }
 
 func (c Languages) Index() revel.Result {
-    dbLineStats, _ := c.Txn.Select(models.FileStat{},
-        "select language, sum(code + comment + blank) as lines " + 
-        "from files group by language order by lines desc")
-    dbRepoStats, _ := c.Txn.Select(models.RepoStat{},
-        "select language, count(*) as count from repos where language != '' " + 
-        "group by language order by count desc")
+    var dbLineStats []interface{}
+    var dbRepoStats []interface{}
     lines := 0
+    err := cache.Get("dbLineStats", &dbLineStats)
+    if err != nil {
+        dbLineStats, _ = c.Txn.Select(models.FileStat{},
+            "select language, sum(code + comment + blank) as lines " + 
+            "from files group by language order by lines desc")
+    }
+    err = cache.Get("dbRepoStats", &dbRepoStats)
+    if err != nil {
+        dbRepoStats, _ = c.Txn.Select(models.RepoStat{},
+            "select language, count(*) as count from repos where language != '' " + 
+            "group by language order by count desc")
+    }
     
     fileStats := make([](*models.FileStat), 15)
     for i := 0 ; i < len(dbLineStats) ; i++ {
@@ -63,6 +72,9 @@ func (c Languages) Index() revel.Result {
     for i := 0 ; i < len(repoStats) ; i++  {
         repoStats[i] = dbRepoStats[i].(*models.RepoStat)
     }
+
+    go cache.Set("dbLineStats", dbLineStats, 30 * time.Minute)
+    go cache.Set("dbRepoStats", dbRepoStats, 30 * time.Minute)
     return c.Render(dbLineStats, lines, fileStats, repoStats)
 }
 
