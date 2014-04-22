@@ -41,8 +41,8 @@ func processRepo(message string, db *sql.DB, id int) {
     var repo *github.Repository
     repo, _, err := client.Repositories.Get(info[0], info[1])
     for ; err != nil ; {
-        time.Sleep(10 * time.Minute)
         fmt.Println("api error: " + err.Error())
+        time.Sleep(10 * time.Minute)
         repo, _, err = client.Repositories.Get(info[0], info[1])
     }
 
@@ -167,10 +167,11 @@ func consumer(id int, db *sql.DB, conn *amqp.Connection) {
         select {
         case message = <- priRepos:
             processRepo(string(message.Body), db, id)
+            if message != nil { message.Ack(false) }
             message.Ack(false)
         case message = <- regRepos:
             processRepo(string(message.Body), db, id)
-            message.Ack(false)
+            if message != nil { message.Ack(false) }
         }
     }
 }

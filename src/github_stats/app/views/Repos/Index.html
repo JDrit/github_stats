@@ -70,10 +70,9 @@
     svg.append("circle")
         .attr("r", outerRadius);
 
-    d3.json("/languages/top", function(languages) {
-        d3.json("/stats", function(matrix) {
+        d3.json("/stats", function(stats) {
             d3.select("#message").remove();
-            layout.matrix(matrix);
+            layout.matrix(stats['stats']);
             // Add a group per neighborhood.
             var group = svg.selectAll(".group")
                 .data(layout.groups)
@@ -82,20 +81,24 @@
                 .on("mouseover", mouseover);
             // Add a mouseover title.
             group.append("title").text(function(d, i) {
-                return languages[i].Name + ": " + Math.round(d.value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " files";
+                return stats['languages'][i].Name + ": " + Math.round(d.value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " files";
             });
             // Add the group arc.
             var groupPath = group.append("path")
                 .attr("id", function(d, i) { return "group" + i; })
                 .attr("d", arc)
-                .style("fill", function(d, i) { return languages[i].Color; });
+                .style("fill", function(d, i) { 
+                    return stats['languages'][i].Color; 
+                });
             // Add a text label.
             var groupText = group.append("text")
                 .attr("x", 6)
                 .attr("dy", 15);
             groupText.append("textPath")
                 .attr("xlink:href", function(d, i) { return "#group" + i; })
-                .text(function(d, i) { return languages[i].Name; });
+                .text(function(d, i) {
+                        return stats['languages'][i].Name; 
+                    });
             // Remove the labels that don't fit. :(
             groupText.filter(function(d, i) { return groupPath[0][i].getTotalLength() / 2 - 16 < this.getComputedTextLength(); })
                 .remove();
@@ -104,16 +107,18 @@
                 .data(layout.chords)
               .enter().append("path")
                 .attr("class", "chord")
-                .style("fill", function(d) { return languages[d.source.index].Color; })
+                .style("fill", function(d) { 
+                        return stats['languages'][d.source.index].Color; 
+                })
                 .attr("d", path);
             // Add an elaborate mouseover title for each chord.
             chord.append("title").text(function(d) {
-              return languages[d.source.index].Name
-                  + " → " + languages[d.target.index].Name
+              return stats['languages'][d.source.index].Name
+                  + " → " + stats['languages'][d.target.index].Name
                   + ": " + Math.round(d.source.value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") 
-                  + "\n" + languages[d.target.index].Name
-                  + " → " + languages[d.source.index].Name
-                  + ": " + Math.round(d.target.value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") ;
+                  + "\n" + stats['languages'][d.target.index].Name
+                  + " → " + stats['languages'][d.source.index].Name
+                  + ": " + Math.round(d.target.value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
             });
             function mouseover(d, i) {
               chord.classed("fade", function(p) {
@@ -122,7 +127,6 @@
               });
             }
         });
-    });
 </script>
 
 {{template "footer.html" .}}

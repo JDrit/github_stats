@@ -13,20 +13,40 @@ type Repos struct {
     Application
 }
 
+type Language struct {
+    Name    string
+    Color   string
+}
+
 func (c Repos) Stat() revel.Result {
     limit := 20
     var results [][]int
     var buffer bytes.Buffer
-    if err := cache.Get("stats", &results); err == nil {
-        return c.RenderJson(results)
+    var mapResults map[string]interface{}
+    if err := cache.Get("stats", &mapResults); err == nil {
+        return c.RenderJson(mapResults)
+    } else {
+        revel.INFO.Printf(err.Error())
     }
+    languageResults := make([]Language, limit)
     languages, _ := c.Txn.Select(models.RepoStat{},
         "select l.language from (select language from files where language != '' " + 
-        "group by language order by count(*) desc limit $1) l order by l.language", limit)
-    for i := 0 ; i < len(languages) - 1 ; i++ {
+                "group by language order by count(*) desc limit $1) l order by l.language", limit)
+    colors := [...]string {"#FF0000", "#617C58", "#52D017", 
+        "#C0C0C0", "#0000FF", "#808080", "#0000A0", "#ADD8E6",
+        "#FFA500", "#800080", "#A52A2A", "#FFFF00", "#800000", 
+        "#00FF00", "#008000", "#FF00FF", "#FF0000", "#57FEFF", 
+        "FFA62F", "#8E35EF"}
+    for i := 0 ; i < len(languages) ; i++ {
+        languageResults[i] = Language { 
+            Name: languages[i].(*models.RepoStat).Language,
+            Color: colors[i],
+        }
         buffer.WriteString("'" + languages[i].(*models.RepoStat).Language + "', ")
     }
     buffer.WriteString("'" + languages[len(languages) - 1].(*models.RepoStat).Language + "'")
+    mapResults = make(map[string]interface{})
+    mapResults["languages"] = languageResults
     results = make([][]int, limit)
     for i := 0 ; i < len(languages) ; i++ {
         repoStats, _ := c.Txn.Select(models.RepoStat{}, 
@@ -41,8 +61,9 @@ func (c Repos) Stat() revel.Result {
         }
         results[i] = row
     }
-    go cache.Set("stats", results, 1 * time.Hour)
-    return c.RenderJson(results)
+    mapResults["stats"] = results
+    go cache.Set("stats", mapResults, 1 * time.Hour)
+    return c.RenderJson(mapResults)
 }
 
 func (c Repos) Index() revel.Result {
