@@ -32,6 +32,7 @@ type  FileStat struct {
     Code          int
     Blank         int
     Comment       int
+    Sum           int
 }
 
 type UserStat struct {

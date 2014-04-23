@@ -25,8 +25,6 @@ func (c Repos) Stat() revel.Result {
     var mapResults map[string]interface{}
     if err := cache.Get("stats", &mapResults); err == nil {
         return c.RenderJson(mapResults)
-    } else {
-        revel.INFO.Printf(err.Error())
     }
     languageResults := make([]Language, limit)
     languages, _ := c.Txn.Select(models.RepoStat{},
@@ -67,25 +65,15 @@ func (c Repos) Stat() revel.Result {
 }
 
 func (c Repos) Index() revel.Result {
-	repoStats, err := c.Txn.Select(models.RepoStat{},
-        "select count(*) from repos")
-    if err != nil {
-        panic(err)
-    }
-
-    fileStats, err := c.Txn.Select(models.FileStat{},
-        "select count(*) from files")
-    if err != nil {
-        panic(err)
-    }
-
-    users, err := c.Txn.Select(models.UserStat{},
-        "select count(distinct(owner)) from repos")
-
-    repoCount := repoStats[0].(*models.RepoStat).Count
-    userCount := users[0].(*models.UserStat).Count
-    fileCount := fileStats[0].(*models.FileStat).Count
-    return c.Render(repoCount, userCount, fileCount)
+	repoCount64, _ := c.Txn.SelectInt("select count(*) from repos")
+    fileCount64, _ := c.Txn.SelectInt("select count(*) from files")
+    userCount64, _ := c.Txn.SelectInt("select count(distinct(owner)) from repos")
+    var speed int
+    repoCount := int(repoCount64)
+    fileCount := int(fileCount64)
+    userCount := int(userCount64)
+    cache.Get("speed", &speed)
+    return c.Render(repoCount, userCount, fileCount, speed)
 }
 
 func (c Repos) Show(repoId int) revel.Result {

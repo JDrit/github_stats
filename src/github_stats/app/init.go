@@ -2,6 +2,8 @@ package app
 
 import (
     "github.com/revel/revel"
+    "github.com/revel/revel/modules/jobs/app/jobs"
+    "github_stats/app/background"
     "strconv"
     "bytes"
     "time"
@@ -57,6 +59,10 @@ func init() {
     revel.TemplateFuncs["encode"] = func(message string) string {
         return url.QueryEscape(message)
     }
+
+    revel.OnAppStart(func() {
+        jobs.Every(10 * time.Minute, background.ProcessSpeed{})
+    })
 
 	// register startup functions with OnAppStart
 	// ( order dependent )

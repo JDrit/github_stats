@@ -80,51 +80,22 @@ func (c Languages) Index() revel.Result {
 
 func (c Languages) Show() revel.Result {
     language := c.Params.Get("language")
-    if language == "" {
-        return c.Redirect(routes.Languages.Index())
-    }
-    fileStats, err := c.Txn.Select(models.FileStat{}, 
-        "select sum(code + comment + blank) as lines " + 
-        "from files where language = $1", language)
-    if err != nil {
-        c.Flash.Error("Invalid language")
-        return c.Redirect(routes.Languages.Index())
-    }
-
-    lineStats, _ := c.Txn.Select(models.FileStat{},
-        "select sum(code) as code, sum(comment) as comment, " + 
+    if language == "" { return c.Redirect(routes.Languages.Index()) }
+    lines, _ := c.Txn.SelectInt("select sum(code + comment + blank) as lines " + 
+        "from file where language = $1", language)
+    var lineStats models.FileStat
+    c.Txn.SelectOne(&lineStats, "select sum(code) as code, sum(comment) as comment, " + 
         "sum(blank) as blank from files where language = $1", language)
-    if err != nil {
-        panic(err)
-    }
-
-    repoStats, err := c.Txn.Select(models.RepoStat{},
-        "select count(*) from repos " + 
+    fileCount, _ := c.Txn.SelectInt("select count(*) from files " + 
         "where language = $1", language)
-    if err != nil {
-        panic(err)
-    }
-    
-    fileStatsCount, err := c.Txn.Select(models.FileStat{},
-        "select count(*) from files where language = $1", language)
-    if err != nil {
-        panic(err)
-    }
-
-    repos, err := c.Txn.Select(models.Repo{}, 
+    repos, _ := c.Txn.Select(models.Repo{}, 
         "select * from repos where language = $1", 
         language)
-    if err != nil {
-        panic(err)
-    }
-
-
-    lines := fileStats[0].(*models.FileStat).Lines
-    repoCount := repoStats[0].(*models.RepoStat).Count
-    fileCount := fileStatsCount[0].(*models.FileStat).Count
-    blank := lineStats[0].(*models.FileStat).Blank
-    code := lineStats[0].(*models.FileStat).Code
-    comment := lineStats[0].(*models.FileStat).Comment
+    
+    blank := lineStats.Blank
+    code := lineStats.Code
+    comment := lineStats.Comment
+    repoCount := len(repos)
     return c.Render(language, lines, repoCount, repos, fileCount, 
         blank, code, comment)
 }

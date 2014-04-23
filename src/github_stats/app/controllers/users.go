@@ -84,8 +84,6 @@ func (c Users) Show(login string) revel.Result {
             }
 
             c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
-            //job := background.ProcessUser{login}
-            //jobs.Now(job)
         }
         return c.Redirect(routes.Users.Show(login))
     } else {
