@@ -61,19 +61,23 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
                 },
             }
             var totalRepos []github.Repository
-            repos, _, _ := client.Repositories.List(*(users[i].Login), &options)
-            for ; len(repos) != 0 ; {
-                for i := 0 ; i < len(repos) ; i++ {
-                    totalRepos = append(totalRepos, repos[i])
-                }
-                page++
+            for ; ; {
                 options := github.RepositoryListOptions {
                     ListOptions: github.ListOptions {
                         Page: page,
                         PerPage: 100,
                     },
                 }
-                repos, _, _ = client.Repositories.List(*(users[i].Login), &options)
+                repos, _, _ := client.Repositories.List(login, &options)
+                for i := 0 ; i < len(repos) ; i++ {
+                    revel.INFO.Printf(*(repos[i].Name))
+                    totalRepos = append(totalRepos, repos[i])
+                }
+                page++
+                revel.INFO.Printf("%d\n", page)
+                if len(repos) != 100 {
+                    break
+                }
             }
             _, err = stmt_user.Exec(*(user.ID), name, 
                 *(user.Login), email, *(user.AvatarURL), 

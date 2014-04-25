@@ -52,27 +52,24 @@ func (c Users) Show(login string) revel.Result {
             if user.Name != nil { name = *(user.Name) }
             if user.Email != nil { email = *(user.Email) }
             page := 0
-            options := github.RepositoryListOptions {
-                ListOptions: github.ListOptions {
-                    Page: page,
-                    PerPage: 100,
-                },
-            }
-
             var totalRepos []github.Repository
-            repos, _, _ := client.Repositories.List(login, &options)
-            for ; len(repos) != 0 ; {
-                for i := 0 ; i < len(repos) ; i++ {
-                    totalRepos = append(totalRepos, repos[i])
-                }
-                page++
+            for ; ; {
                 options := github.RepositoryListOptions {
                     ListOptions: github.ListOptions {
                         Page: page,
                         PerPage: 100,
                     },
                 }
-                repos, _, _ = client.Repositories.List(login, &options)
+                repos, _, _ := client.Repositories.List(login, &options)
+                for i := 0 ; i < len(repos) ; i++ {
+                    revel.INFO.Printf(*(repos[i].Name))
+                    totalRepos = append(totalRepos, repos[i])
+                }
+                page++
+                revel.INFO.Printf("%d\n", page)
+                if len(repos) != 100 {
+                    break
+                }
             }
             newUser := models.User{
                 Id: *(user.ID), 
@@ -100,7 +97,6 @@ func (c Users) Show(login string) revel.Result {
                 dbRepo, _ := c.Txn.Get(models.Repo{}, *(repo.ID))
                 if dbRepo == nil { channel.Publish("", "repos-priority", false, false, msg) }
             }
-
             c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
         }
         return c.Redirect(routes.Users.Show(login))
