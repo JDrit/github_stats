@@ -33,5 +33,6 @@ func (s ProcessSpeed) Run() {
     speed := float64(endLines - beginLines) / float64(endTime - beginTime)
     cache.Set("speed", int(speed), time.Hour)
     revel.INFO.Printf("%f\n", speed)
+    txn.Commit()
 }
 

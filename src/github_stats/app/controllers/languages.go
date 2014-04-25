@@ -82,7 +82,7 @@ func (c Languages) Show() revel.Result {
     language := c.Params.Get("language")
     if language == "" { return c.Redirect(routes.Languages.Index()) }
     lines, _ := c.Txn.SelectInt("select sum(code + comment + blank) as lines " + 
-        "from file where language = $1", language)
+        "from files where language = $1", language)
     var lineStats models.FileStat
     c.Txn.SelectOne(&lineStats, "select sum(code) as code, sum(comment) as comment, " + 
         "sum(blank) as blank from files where language = $1", language)
@@ -91,7 +91,6 @@ func (c Languages) Show() revel.Result {
     repos, _ := c.Txn.Select(models.Repo{}, 
         "select * from repos where language = $1", 
         language)
-    
     blank := lineStats.Blank
     code := lineStats.Code
     comment := lineStats.Comment

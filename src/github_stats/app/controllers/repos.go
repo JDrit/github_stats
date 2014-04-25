@@ -65,14 +65,23 @@ func (c Repos) Stat() revel.Result {
 }
 
 func (c Repos) Index() revel.Result {
-	repoCount64, _ := c.Txn.SelectInt("select count(*) from repos")
-    fileCount64, _ := c.Txn.SelectInt("select count(*) from files")
-    userCount64, _ := c.Txn.SelectInt("select count(distinct(owner)) from repos")
+    var repoCount int64
+    var fileCount int64
+    var userCount int64
     var speed int
-    repoCount := int(repoCount64)
-    fileCount := int(fileCount64)
-    userCount := int(userCount64)
-    cache.Get("speed", &speed)
+    if err := cache.Get("repoCount", &repoCount); err != nil {
+        repoCount, _ = c.Txn.SelectInt("select count(*) from repos")
+        go cache.Set("repoCount", repoCount, 1 * time.Hour)
+    }
+    if err := cache.Get("fileCount", &fileCount); err != nil {
+        fileCount, _ = c.Txn.SelectInt("select count(*) from files")
+        go cache.Set("fileCount", fileCount, 1 * time.Hour)
+    }
+    if err := cache.Get("userCount", &userCount); err != nil {
+        userCount, _ = c.Txn.SelectInt("select count(distinct(owner)) from repos")
+        go cache.Set("userCount", userCount, 1 * time.Hour)
+    }
+    cache.Get("speed", &speed) // lines processed per second
     return c.Render(repoCount, userCount, fileCount, speed)
 }
 

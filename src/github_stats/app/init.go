@@ -47,6 +47,27 @@ func init() {
         return string(runes1)
 
     }
+    revel.TemplateFuncs["delim64"] = func(num int64 ) string {
+        var buffer bytes.Buffer
+        runes := []rune(strconv.FormatInt(num, 10))
+        for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+            runes[i], runes[j] = runes[j], runes[i]
+        }
+        revStr := string(runes)
+        for i := 0 ; i < len(revStr) ; i++ {
+            if i % 3 == 0 && i != 0 {
+                buffer.WriteString(",")
+            }
+            buffer.WriteString(string(revStr[i]))
+        }
+        runes1 := []rune(buffer.String())
+        for i, j := 0, len(runes1) - 1 ; i < j ; i, j = i+1, j-1 {
+            runes1[i], runes1[j] = runes1[j], runes1[i]
+        }
+        return string(runes1)
+
+    }
+
 
     revel.TemplateFuncs["neq"] = func(a, b interface{}) bool {
         return a != b

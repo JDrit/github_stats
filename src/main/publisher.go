@@ -53,14 +53,35 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
             email := ""
             if user.Name != nil { name = *(user.Name) }
             if user.Email != nil { email = *(user.Email) }
-            repos, _, _ := client.Repositories.List(*(users[i].Login), nil)
+            page := 0
+            options := github.RepositoryListOptions {
+                ListOptions: github.ListOptions {
+                    Page: page,
+                    PerPage: 100,
+                },
+            }
+            var totalRepos []github.Repository
+            repos, _, _ := client.Repositories.List(*(users[i].Login), &options)
+            for ; len(repos) != 0 ; {
+                for i := 0 ; i < len(repos) ; i++ {
+                    totalRepos = append(totalRepos, repos[i])
+                }
+                page++
+                options := github.RepositoryListOptions {
+                    ListOptions: github.ListOptions {
+                        Page: page,
+                        PerPage: 100,
+                    },
+                }
+                repos, _, _ = client.Repositories.List(*(users[i].Login), &options)
+            }
             _, err = stmt_user.Exec(*(user.ID), name, 
                 *(user.Login), email, *(user.AvatarURL), 
                 *(user.Followers), *(user.Following), (*(user.CreatedAt)).Unix(), 
-                len(repos))
-
-            for j := 0 ; j < len(repos) ; j++ {
-                repo := &(repos[j])
+                len(totalRepos))
+            fmt.Println(len(totalRepos))
+            for j := 0 ; j < len(totalRepos) ; j++ {
+                repo := (totalRepos[j])
                 message := *(repo.Owner.Login) + "|" + *(repo.Name)
                 msg := amqp.Publishing{
                     DeliveryMode: amqp.Persistent,
@@ -73,15 +94,15 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
                     *(repo.Name), *(repo.Owner.Login)).Scan(&name)
 
                 if len(name) == 0 {
-                    fmt.Fprintf(os.Stdout, "%d: (%s) %s added to queue\n",
-                        (index + i), *(repo.Owner.Login), *(repo.Name))
+                    //fmt.Fprintf(os.Stdout, "%d: (%s) %s added to queue\n",
+                      //  (index + i), *(repo.Owner.Login), *(repo.Name))
                     err = c.Publish("", "repos", false, false, msg)
                     if err != nil {
                         fmt.Println(err)
                     }
                 } else {
-                    fmt.Fprintf(os.Stdout, "repo (%s) %s has already ben processed\n", 
-                        *(repo.Owner.Login), *(repo.Name))
+                  //  fmt.Fprintf(os.Stdout, "repo (%s) %s has already ben processed\n", 
+                    //    *(repo.Owner.Login), *(repo.Name))
                 }
             }
         }
