@@ -71,7 +71,13 @@ func (c Languages) Index() revel.Result {
         dbLineStats[i].(*models.FileStat).Count = i + 1
     }
     repoStats := make([](*models.RepoStat), 15)
-    for i := 0 ; i < len(repoStats) ; i++  {
+    var size int
+    if len(repoStats) > len(dbRepoStats) {
+        size = len(dbRepoStats)
+    } else {
+        size = len(repoStats)
+    }
+    for i := 0 ; i < size ; i++  {
         repoStats[i] = dbRepoStats[i].(*models.RepoStat)
     }
 

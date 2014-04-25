@@ -49,13 +49,31 @@ func (c Users) Show(login string) revel.Result {
             }
             name := ""
             email := ""
-            if user.Name != nil {
-                name = *(user.Name)
+            if user.Name != nil { name = *(user.Name) }
+            if user.Email != nil { email = *(user.Email) }
+            page := 0
+            options := github.RepositoryListOptions {
+                ListOptions: github.ListOptions {
+                    Page: page,
+                    PerPage: 100,
+                },
             }
-            if user.Email != nil {
-                email = *(user.Email)
+
+            var totalRepos []github.Repository
+            repos, _, _ := client.Repositories.List(login, &options)
+            for ; len(repos) != 0 ; {
+                for i := 0 ; i < len(repos) ; i++ {
+                    totalRepos = append(totalRepos, repos[i])
+                }
+                page++
+                options := github.RepositoryListOptions {
+                    ListOptions: github.ListOptions {
+                        Page: page,
+                        PerPage: 100,
+                    },
+                }
+                repos, _, _ = client.Repositories.List(login, &options)
             }
-            repos, _, _ := client.Repositories.List(*(user.Login), nil)
             newUser := models.User{
                 Id: *(user.ID), 
                 Name: name, 
@@ -64,14 +82,14 @@ func (c Users) Show(login string) revel.Result {
                 Email: email, 
                 Followers: *(user.Followers), 
                 Following: *(user.Following), 
-                ReposLeft: len(repos),
+                ReposLeft: len(totalRepos),
                 CreatedAt: (*(user.CreatedAt)).Unix()}
             c.Txn.Insert(&newUser)
             spec, _ := revel.Config.String("amqp_url")
             conn, err := amqp.Dial(spec)
             channel, _ := conn.Channel()
-            for i := 0 ; i < len(repos) ; i++ {
-                repo := &(repos[i])
+            for i := 0 ; i < len(totalRepos) ; i++ {
+                repo := totalRepos[i]
                 message := *(repo.Owner.Login) + "|" + *(repo.Name)
                 msg := amqp.Publishing{
                     DeliveryMode: amqp.Persistent,

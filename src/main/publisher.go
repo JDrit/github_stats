@@ -79,7 +79,6 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
                 *(user.Login), email, *(user.AvatarURL), 
                 *(user.Followers), *(user.Following), (*(user.CreatedAt)).Unix(), 
                 len(totalRepos))
-            fmt.Println(len(totalRepos))
             for j := 0 ; j < len(totalRepos) ; j++ {
                 repo := (totalRepos[j])
                 message := *(repo.Owner.Login) + "|" + *(repo.Name)
@@ -94,15 +93,15 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
                     *(repo.Name), *(repo.Owner.Login)).Scan(&name)
 
                 if len(name) == 0 {
-                    //fmt.Fprintf(os.Stdout, "%d: (%s) %s added to queue\n",
-                      //  (index + i), *(repo.Owner.Login), *(repo.Name))
+                    fmt.Fprintf(os.Stdout, "%d: (%s) %s added to queue\n",
+                        (index + i), *(repo.Owner.Login), *(repo.Name))
                     err = c.Publish("", "repos", false, false, msg)
                     if err != nil {
                         fmt.Println(err)
                     }
                 } else {
-                  //  fmt.Fprintf(os.Stdout, "repo (%s) %s has already ben processed\n", 
-                    //    *(repo.Owner.Login), *(repo.Name))
+                    fmt.Fprintf(os.Stdout, "repo (%s) %s has already ben processed\n", 
+                        *(repo.Owner.Login), *(repo.Name))
                 }
             }
         }
