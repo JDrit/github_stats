@@ -3,11 +3,11 @@ package controllers
 import (
     "github.com/revel/revel"
     "github_stats/app/models"
+    "github.com/revel/revel/modules/jobs/app/jobs"
     "github_stats/app/routes"
+    "github_stats/app/background"
     "github.com/google/go-github/github"
     "code.google.com/p/goauth2/oauth"
-    "github.com/streadway/amqp"
-    "time"
 )
 
 type Users struct {
@@ -51,26 +51,6 @@ func (c Users) Show(login string) revel.Result {
             email := ""
             if user.Name != nil { name = *(user.Name) }
             if user.Email != nil { email = *(user.Email) }
-            page := 0
-            var totalRepos []github.Repository
-            for ; ; {
-                options := github.RepositoryListOptions {
-                    ListOptions: github.ListOptions {
-                        Page: page,
-                        PerPage: 100,
-                    },
-                }
-                repos, _, _ := client.Repositories.List(login, &options)
-                for i := 0 ; i < len(repos) ; i++ {
-                    revel.INFO.Printf(*(repos[i].Name))
-                    totalRepos = append(totalRepos, repos[i])
-                }
-                page++
-                revel.INFO.Printf("%d\n", page)
-                if len(repos) != 100 {
-                    break
-                }
-            }
             newUser := models.User{
                 Id: *(user.ID), 
                 Name: name, 
@@ -79,25 +59,11 @@ func (c Users) Show(login string) revel.Result {
                 Email: email, 
                 Followers: *(user.Followers), 
                 Following: *(user.Following), 
-                ReposLeft: len(totalRepos),
+                //ReposLeft: len(totalRepos),
                 CreatedAt: (*(user.CreatedAt)).Unix()}
             c.Txn.Insert(&newUser)
-            spec, _ := revel.Config.String("amqp_url")
-            conn, err := amqp.Dial(spec)
-            channel, _ := conn.Channel()
-            for i := 0 ; i < len(totalRepos) ; i++ {
-                repo := totalRepos[i]
-                message := *(repo.Owner.Login) + "|" + *(repo.Name)
-                msg := amqp.Publishing{
-                    DeliveryMode: amqp.Persistent,
-                    Timestamp:    time.Now(),
-                    ContentType:  "text/plain",
-                    Body:         []byte(message),
-                }
-                dbRepo, _ := c.Txn.Get(models.Repo{}, *(repo.ID))
-                if dbRepo == nil { channel.Publish("", "repos-priority", false, false, msg) }
-            }
             c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
+            jobs.Now(background.AddUser{User: newUser})
         }
         return c.Redirect(routes.Users.Show(login))
     } else {

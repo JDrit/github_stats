@@ -56,6 +56,11 @@ type User struct {
     LastProcessed int64
 }
 
+func (u *User) String() string {
+    return fmt.Sprintf("User: %s\nName: %s\nRepos left: %d\n", u.Login, 
+        u.Name, u.ReposLeft)
+}
+
 func (r *Repo) String() string { 
     return fmt.Sprintf("Repo: %s, owned by: %s", r.Name, r.Owner)
 }

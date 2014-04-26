@@ -5,7 +5,7 @@
     <h2>{{delim64 .repoCount}} Github Repositories Processed</h2>
     <h2>{{delim64 .userCount}} Github Users</h2>
     <h2>{{delim64 .fileCount}} Files<h2>
-    <h4>{{delim .speed}} lines processed per second</h4>
+    <h4>processing {{delim .speed}} lines per second</h4>
     <div style="font-size: 15px" id="chart">
         <p id="message">Loading graph...</p>
     </div>
@@ -101,7 +101,7 @@
                         return stats['languages'][i].Name; 
                     });
             // Remove the labels that don't fit. :(
-            groupText.filter(function(d, i) { return groupPath[0][i].getTotalLength() / 2 - 16 < this.getComputedTextLength(); })
+            groupText.filter(function(d, i) { return groupPath[0][i].getTotalLength() / 2 - 23 < this.getComputedTextLength(); })
                 .remove();
             // Add the chords.
             var chord = svg.selectAll(".chord")

@@ -26,7 +26,7 @@ func (s ProcessSpeed) Run() {
     beginTime := time.Now().Unix()
     fileStats, _ := txn.Select(models.FileStat{}, "select sum(code + comment + blank) as sum from files")
     beginLines := fileStats[0].(*models.FileStat).Sum
-    time.Sleep(time.Minute * 2)
+    time.Sleep(time.Minute * 5)
     fileStats, _ = txn.Select(models.FileStat{}, "select sum(code + comment + blank) as sum from files")
     endTime := time.Now().Unix()
     endLines := fileStats[0].(*models.FileStat).Sum

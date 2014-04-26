@@ -54,12 +54,6 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
             if user.Name != nil { name = *(user.Name) }
             if user.Email != nil { email = *(user.Email) }
             page := 0
-            options := github.RepositoryListOptions {
-                ListOptions: github.ListOptions {
-                    Page: page,
-                    PerPage: 100,
-                },
-            }
             var totalRepos []github.Repository
             for ; ; {
                 options := github.RepositoryListOptions {
@@ -68,13 +62,11 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
                         PerPage: 100,
                     },
                 }
-                repos, _, _ := client.Repositories.List(login, &options)
+                repos, _, _ := client.Repositories.List(*(user.Login), &options)
                 for i := 0 ; i < len(repos) ; i++ {
-                    revel.INFO.Printf(*(repos[i].Name))
                     totalRepos = append(totalRepos, repos[i])
                 }
                 page++
-                revel.INFO.Printf("%d\n", page)
                 if len(repos) != 100 {
                     break
                 }

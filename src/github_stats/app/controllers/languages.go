@@ -46,15 +46,13 @@ func (c Languages) Index() revel.Result {
     var dbLineStats []interface{}
     var dbRepoStats []interface{}
     lines := 0
-    err := cache.Get("dbLineStats", &dbLineStats)
-    if err != nil {
+    if err := cache.Get("dbLineStats", &dbLineStats); err != nil {
         dbLineStats, _ = c.Txn.Select(models.FileStat{},
             "select language, sum(code + comment + blank) as lines " + 
             "from files group by language order by lines desc")
         go cache.Set("dbLineStats", dbLineStats, 30 * time.Minute)
     }
-    err = cache.Get("dbRepoStats", &dbRepoStats)
-    if err != nil {
+    if err := cache.Get("dbRepoStats", &dbRepoStats); err != nil {
         dbRepoStats, _ = c.Txn.Select(models.RepoStat{},
             "select language, count(*) as count from repos where language != '' " + 
             "group by language order by count desc")
@@ -80,7 +78,6 @@ func (c Languages) Index() revel.Result {
     for i := 0 ; i < size ; i++  {
         repoStats[i] = dbRepoStats[i].(*models.RepoStat)
     }
-
     return c.Render(dbLineStats, lines, fileStats, repoStats)
 }
 
@@ -94,13 +91,7 @@ func (c Languages) Show() revel.Result {
         "sum(blank) as blank from files where language = $1", language)
     fileCount, _ := c.Txn.SelectInt("select count(*) from files " + 
         "where language = $1", language)
-    repos, _ := c.Txn.Select(models.Repo{}, 
-        "select * from repos where language = $1", 
-        language)
-    blank := lineStats.Blank
-    code := lineStats.Code
-    comment := lineStats.Comment
-    repoCount := len(repos)
-    return c.Render(language, lines, repoCount, repos, fileCount, 
-        blank, code, comment)
+    repoCount, _ := c.Txn.SelectInt("select count(*) from repos where " + 
+        "language = $1", language)
+    return c.Render(language, lines, repoCount, fileCount, lineStats)
 }
