@@ -87,11 +87,22 @@ func (c Languages) Show() revel.Result {
     lines, _ := c.Txn.SelectInt("select sum(code + comment + blank) as lines " + 
         "from files where language = $1", language)
     var lineStats models.FileStat
-    c.Txn.SelectOne(&lineStats, "select sum(code) as code, sum(comment) as comment, " + 
-        "sum(blank) as blank from files where language = $1", language)
-    fileCount, _ := c.Txn.SelectInt("select count(*) from files " + 
-        "where language = $1", language)
-    repoCount, _ := c.Txn.SelectInt("select count(*) from repos where " + 
-        "language = $1", language)
+    if err := cache.Get("language-show-linesStats", &lineStats); err != nil {
+        c.Txn.SelectOne(&lineStats, "select sum(code) as code, sum(comment) as comment, " + 
+            "sum(blank) as blank from files where language = $1", language)
+        go cache.Set("language-show-linesStats", lineStats, 30 * time.Minute)
+    }
+    var fileCount int64
+    if err := cache.Get("language-show-fileCount", &fileCount); err != nil {
+        fileCount, _ = c.Txn.SelectInt("select count(*) from files " + 
+            "where language = $1", language)
+        go cache.Set("language-show-fileCount", fileCount, 30 * time.Minute)
+    }
+    var repoCount int64
+    if err := cache.Get("language-show-repoCount", &repoCount); err != nil {
+        repoCount, _ := c.Txn.SelectInt("select count(*) from repos where " + 
+            "language = $1", language)
+        go cache.Set("language-show-repoCount", repoCount, 30 * time.Minute)
+    }
     return c.Render(language, lines, repoCount, fileCount, lineStats)
 }

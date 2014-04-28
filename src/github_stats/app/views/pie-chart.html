@@ -32,7 +32,7 @@
                 point: {
                     events: {
                         click: function(e) {
-                            location.href = "/languages?language=" + e.point.name;
+                            location.href = "/languages?language=" + encodeURIComponent(e.point.name);
                             e.preventDefault();
                         }
                     }

@@ -59,7 +59,6 @@ func (c Users) Show(login string) revel.Result {
                 Email: email, 
                 Followers: *(user.Followers), 
                 Following: *(user.Following), 
-                //ReposLeft: len(totalRepos),
                 CreatedAt: (*(user.CreatedAt)).Unix()}
             c.Txn.Insert(&newUser)
             c.Flash.Error("User not found. User has been added to queue to process. Come back shortly!")
