@@ -82,7 +82,7 @@
         group.append("title").text(function(d, i) {
             return stats['languages'][i].Name + ": " + 
                 Math.round(d.value).toString().replace(
-                    /\B(?=(\d{3})+(?!\d))/g, ",") + " files";
+                    /\B(?=(\d{3})+(?!\d))/g, ",") + " lines";
         });
         // Add the group arc.
         var groupPath = group.append("path")

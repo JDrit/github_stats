@@ -28,7 +28,7 @@ create table repos (
 
 create table files (
     id serial primary key,
-    name varchar(255) not null,
+    name text not null,
     blank integer default 0,
     code integer default 0,
     comment integer default 0,

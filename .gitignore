@@ -21,7 +21,8 @@ _testmain.go
 
 *.exe
 *.test
-
+src/code.google.com
+src/github.com
 bin
 app.conf
 conf.json

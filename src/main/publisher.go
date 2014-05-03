@@ -26,11 +26,19 @@ func publisher(db *sql.DB, index int, apiToken, spec, queueName string, queueSiz
         fmt.Println(err)
         return
     }
-    c, _ := conn.Channel()
+    c, err := conn.Channel()
+    if err != nil {
+        fmt.Println("channel error: " + err.Error())
+        return
+    }
     _, err = c.QueueDeclare("repos", false, false, false, false, nil)
+    if err != nil {
+        fmt.Println("queue error 1: " + err.Error())
+        return
+    }
     _, err = c.QueueDeclare("repos-priority", false, false, false, false, nil)
     if err != nil {
-        fmt.Println(err.Error())
+        fmt.Println("queue error 2: " + err.Error())
         return
     }
 

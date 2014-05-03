@@ -19,7 +19,7 @@ type Language struct {
 }
 
 func (c Repos) Stat() revel.Result {
-    limit := 20
+    limit := 15
     var results [][]int
     var buffer bytes.Buffer
     var mapResults map[string]interface{}
@@ -29,7 +29,8 @@ func (c Repos) Stat() revel.Result {
     languageResults := make([]Language, limit)
     languages, _ := c.Txn.Select(models.RepoStat{},
         "select l.language from (select language from files where language != '' " + 
-                "group by language order by count(*) desc limit $1) l order by l.language", limit)
+                "group by language order by sum(code + comment + blank) desc limit $1) " + 
+                "l order by l.language", limit)
     colors := [...]string {"#FF0000", "#617C58", "#52D017", 
         "#C0C0C0", "#0000FF", "#808080", "#0000A0", "#ADD8E6",
         "#FFA500", "#800080", "#A52A2A", "#FFFF00", "#800000", 
@@ -48,14 +49,21 @@ func (c Repos) Stat() revel.Result {
     results = make([][]int, limit)
     for i := 0 ; i < len(languages) ; i++ {
         repoStats, _ := c.Txn.Select(models.RepoStat{}, 
-            "select l.count, l.language from (select count(*) as count, language " + 
+            "select l.count, l.language from (select sum(code + comment + blank) as count, language " + 
             "from files where repoid in (select id from repos where language = $1) " + 
             "and language in (" + buffer.String()  + ") group by language order by " + 
-            "count(*) desc) l order by l.language", 
+            "sum(code + comment + blank) desc) l order by l.language", 
             languages[i].(*models.RepoStat).Language)
         row := make([]int, limit)
         for j := 0 ; j < len(repoStats) ; j++ {
-            row[j] = repoStats[j].(*models.RepoStat).Count
+            var index int
+            for k := 0 ; k < limit ; k++ {
+                if languageResults[k].Name == repoStats[j].(*models.RepoStat).Language {
+                    index = k
+                    break
+                }
+            }
+            row[index] = repoStats[j].(*models.RepoStat).Count
         }
         results[i] = row
     }
